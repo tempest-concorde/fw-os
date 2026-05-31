@@ -1,0 +1,8 @@
+# Flight Wall Application Image Pre-pull
+# Quadlet image unit to pre-cache the fw-app container image
+
+[Image]
+Image=ghcr.io/tempest-concorde/fw-app:latest
+
+[Install]
+WantedBy=default.target

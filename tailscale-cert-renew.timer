@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Tailscale Certificate Renewal
+Documentation=https://tailscale.com/kb/1153/enabling-https
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=24h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=Renew Tailscale TLS Certificate
+Documentation=https://tailscale.com/kb/1153/enabling-https
+After=tailscaled.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=core
+ExecStart=/usr/local/bin/tailscale-cert-renew.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

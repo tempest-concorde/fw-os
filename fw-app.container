@@ -1,0 +1,45 @@
+# Flight Wall Application Quadlet
+# User-level systemd container unit (rootless podman)
+
+[Unit]
+Description=Flight Wall Application
+Documentation=https://github.com/tempest-concorde/fw-app
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=ghcr.io/tempest-concorde/fw-app:latest
+ContainerName=fw-app
+Pull=newer
+RunInit=true
+
+# Application environment
+Environment=GIN_MODE=release
+Environment=GITHUB_ORG=tempest-concorde
+Environment=LED_TILE_W=16
+Environment=LED_TILE_H=16
+Environment=LED_TILES_X=10
+Environment=LED_TILES_Y=2
+
+# Data volume (SQLite database, uploaded images)
+Volume=%h/.fw-app/data:/data:z
+
+# Hardware access - LED matrix via GPIO
+Device=/dev/gpiomem
+
+# SELinux labels (shared volume context)
+SecurityLabelLevel=s0
+
+# Network - bind to localhost only, Tailscale provides external access
+PublishPort=127.0.0.1:8080:8080
+
+# Startup
+TimeoutStartSec=300
+ExecStartPre=/usr/libexec/fw-os/sync-fw-secrets.sh
+
+[Service]
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
