@@ -53,6 +53,7 @@ iso: toml check-env ## Build bootable ISO for SD card install
 		-v /var/lib/containers/storage:/var/lib/containers/storage \
 		$(BIB_IMAGE) \
 		--type iso \
+		--rootfs ext4 \
 		$(FULL_IMAGE)
 	@echo "ISO written to output/"
 
@@ -67,6 +68,7 @@ raw-image: toml check-env ## Build raw disk image for direct SD card flash
 		-v /var/lib/containers/storage:/var/lib/containers/storage \
 		$(BIB_IMAGE) \
 		--type raw \
+		--rootfs ext4 \
 		$(FULL_IMAGE)
 	@echo "Raw image written to output/"
 
@@ -82,6 +84,7 @@ qcow: toml check-env ## Build QCOW2 image for VM testing
 		$(BIB_IMAGE) \
 		--local \
 		--type qcow2 \
+		--rootfs ext4 \
 		$(FULL_IMAGE)
 	@echo "QCOW2 written to output/"
 
