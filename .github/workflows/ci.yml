@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  commitlint:
+    name: Lint PR title
+    uses: tempest-concorde/fw-cicd/.github/workflows/commitlint.yml@main
+
+  build-check:
+    name: Build bootc image (no push)
+    uses: tempest-concorde/fw-cicd/.github/workflows/build-bootc.yml@main
+    with:
+      registry: ghcr.io
+      image_name: tempest-concorde/fw-os
+      platform: linux/arm64
+      containerfile: Containerfile
+      push: false
+      smoke_test_script: |
+        # Verify quadlet units are installed
+        test -f "$MOUNT/etc/containers/systemd/users/1000/fw-app.container" || \
+          (echo "ERROR: fw-app.container quadlet unit missing" && exit 1)
+        test -f "$MOUNT/etc/containers/systemd/users/1000/fw-app.image" || \
+          (echo "ERROR: fw-app.image quadlet unit missing" && exit 1)
+
+        # Verify Tailscale cert renewal automation
+        test -x "$MOUNT/usr/local/bin/tailscale-cert-renew.sh" || \
+          (echo "ERROR: tailscale-cert-renew.sh missing or not executable" && exit 1)
+        test -f "$MOUNT/usr/lib/systemd/system/tailscale-cert-renew.service" || \
+          (echo "ERROR: tailscale-cert-renew.service missing" && exit 1)
+        test -f "$MOUNT/usr/lib/systemd/system/tailscale-cert-renew.timer" || \
+          (echo "ERROR: tailscale-cert-renew.timer missing" && exit 1)
+
+        # Verify secret sync script
+        test -x "$MOUNT/usr/libexec/fw-os/sync-fw-secrets.sh" || \
+          (echo "ERROR: sync-fw-secrets.sh missing or not executable" && exit 1)
+
+        echo "All smoke tests passed"
+    secrets: inherit
