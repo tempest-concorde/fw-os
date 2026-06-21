@@ -11,15 +11,18 @@ LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL containers.bootc="1"
 
 # Install GPIO/I2C packages for LED matrix control
-# Re-add Fedora Rawhide repo (base image removes it after its own installs)
-RUN printf '[fedora-rawhide]\nname=Fedora - Rawhide\nmetalink=https://mirrors.fedoraproject.org/metalink?repo=rawhide&arch=$basearch\nenabled=1\ngpgcheck=0\nskip_if_unavailable=False\n' \
-    > /etc/yum.repos.d/fedora-rawhide.repo && \
+# Use Fedora 42 (stable) — Rawhide's Python 3.15 has OpenSSL 4.0 deps
+# that conflict with the base image. Only the C library is needed since
+# fw-app is Go, not Python.
+RUN printf '[fedora-42]\nname=Fedora 42\nmetalink=https://mirrors.fedoraproject.org/metalink?repo=fedora-42&arch=$basearch\nenabled=1\ngpgcheck=0\nskip_if_unavailable=False\n' \
+    > /etc/yum.repos.d/fedora-42.repo && \
     dnf install -y \
-    --disablerepo='*' --enablerepo='fedora-rawhide' \
-    python3-libgpiod \
+    --disablerepo='*' --enablerepo='fedora-42' \
+    libgpiod \
+    libgpiod-utils \
     i2c-tools \
     && dnf clean all \
-    && rm -f /etc/yum.repos.d/fedora-rawhide.repo
+    && rm -f /etc/yum.repos.d/fedora-42.repo
 
 # Add core user to gpio and i2c groups for hardware access
 RUN usermod -aG gpio,i2c core 2>/dev/null || true
