@@ -14,12 +14,6 @@ rootpw --lock
 sshkey --username=root "{{ strings.TrimSpace (file.Read (env.Getenv "SSH_KEY_PATH")) }}"
 
 %post
-# ostree registry authentication
-mkdir -p /etc/ostree
-cat > /etc/ostree/auth.json << 'EOF'
-{{ file.Read (env.Getenv "DOCKER_AUTH_PATH") }}
-EOF
-
 # WiFi configuration
 export WIFI_SSID_1="{{ env.Getenv "WIFI_SSID_1" }}"
 export WIFI_PSK_1="{{ env.Getenv "WIFI_PSK_1" }}"

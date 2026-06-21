@@ -12,7 +12,6 @@ config.toml
 *.key
 *.crt
 *.pem
-docker-auth.json
 
 # Temporary files
 *.tmp
