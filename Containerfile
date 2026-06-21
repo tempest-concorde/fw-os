@@ -11,26 +11,12 @@ LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.vendor="tempest-concorde"
 LABEL containers.bootc="1"
 
-# bootc-image-builder requires a known distro ID to generate manifests.
-# Hummingbird's custom ID is not recognized. Override to fedora-42 so
-# bib can find its def file. This only affects image building — the
-# actual OS packages and kernel remain Hummingbird.
-RUN sed -i 's/^ID=.*/ID=fedora/' /etc/os-release && \
-    sed -i 's/^VERSION_ID=.*/VERSION_ID=42/' /etc/os-release
-
-# Install GPIO/I2C packages for LED matrix control
-# Use Fedora 42 (stable) — Rawhide's Python 3.15 has OpenSSL 4.0 deps
-# that conflict with the base image. Only the C library is needed since
-# fw-app is Go, not Python.
-RUN printf '[fedora-42]\nname=Fedora 42\nmetalink=https://mirrors.fedoraproject.org/metalink?repo=fedora-42&arch=$basearch\nenabled=1\ngpgcheck=0\nskip_if_unavailable=False\n' \
-    > /etc/yum.repos.d/fedora-42.repo && \
-    dnf install -y \
-    --disablerepo='*' --enablerepo='fedora-42' \
+# GPIO/I2C packages for LED matrix control
+RUN dnf install -y \
     libgpiod \
     libgpiod-utils \
     i2c-tools \
-    && dnf clean all \
-    && rm -f /etc/yum.repos.d/fedora-42.repo
+    && dnf clean all
 
 # Create core user (UID 1000) with gpio/i2c groups at boot via sysusers
 COPY core-user.conf /usr/lib/sysusers.d/50-fw-core.conf
@@ -38,21 +24,20 @@ COPY core-user.conf /usr/lib/sysusers.d/50-fw-core.conf
 # Create fw-app directories with correct ownership at boot via tmpfiles
 COPY fw-os-dirs.conf /usr/lib/tmpfiles.d/50-fw-os.conf
 
-# Copy Tailscale certificate renewal automation
+# Tailscale certificate renewal automation
 COPY tailscale-cert-renew.sh /usr/local/bin/
 COPY tailscale-cert-renew.service /usr/lib/systemd/system/
 COPY tailscale-cert-renew.timer /usr/lib/systemd/system/
 RUN chmod +x /usr/local/bin/tailscale-cert-renew.sh && \
     systemctl enable tailscale-cert-renew.timer
 
-# Copy application quadlet units (user-level systemd)
+# Application quadlet units (user-level systemd)
 COPY fw-app.container /etc/containers/systemd/users/1000/
 COPY fw-app.image /etc/containers/systemd/users/1000/
 
-# Copy application secret sync script
+# Application secret sync script
 RUN mkdir -p /usr/libexec/fw-os
 COPY sync-fw-secrets.sh /usr/libexec/fw-os/
 RUN chmod +x /usr/libexec/fw-os/sync-fw-secrets.sh
 
-# Validate bootc image
 RUN bootc container lint
