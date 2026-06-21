@@ -8,6 +8,7 @@ LABEL org.opencontainers.image.title="Flight Wall OS"
 LABEL org.opencontainers.image.description="Application layer bootc image for Flight Wall LED display"
 LABEL org.opencontainers.image.source="https://github.com/tempest-concorde/fw-os"
 LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.vendor="tempest-concorde"
 LABEL containers.bootc="1"
 
 # Install GPIO/I2C packages for LED matrix control
