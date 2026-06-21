@@ -12,6 +12,7 @@ autopart --type=plain
 
 rootpw --lock
 sshkey --username=root "{{ strings.TrimSpace (file.Read (env.Getenv "SSH_KEY_PATH")) }}"
+sshkey --username=core "{{ strings.TrimSpace (file.Read (env.Getenv "SSH_KEY_PATH")) }}"
 
 %post
 # WiFi configuration
@@ -53,10 +54,6 @@ SSHEOF
 
 # Enable user-level systemd for quadlet units (fw-app runs rootless)
 loginctl enable-linger core 2>/dev/null || true
-
-# Create fw-app data directory
-mkdir -p /home/core/.fw-app/data
-chown -R 1000:1000 /home/core/.fw-app
 
 %end
 
