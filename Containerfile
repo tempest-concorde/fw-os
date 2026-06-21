@@ -10,11 +10,24 @@ LABEL org.opencontainers.image.source="https://github.com/tempest-concorde/fw-os
 LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL containers.bootc="1"
 
+# Fedora Rawhide repo for packages not in Hummingbird's curated set
+# (base image removes this repo after its own installs)
+RUN cat > /etc/yum.repos.d/fedora-rawhide.repo << 'REPO'
+[fedora-rawhide]
+name=Fedora - Rawhide
+metalink=https://mirrors.fedoraproject.org/metalink?repo=rawhide&arch=$basearch
+enabled=1
+gpgcheck=0
+skip_if_unavailable=False
+REPO
+
 # Install GPIO/I2C packages for LED matrix control
 RUN dnf install -y \
+    --disablerepo='*' --enablerepo='fedora-rawhide' \
     python3-libgpiod \
     i2c-tools \
-    && dnf clean all
+    && dnf clean all \
+    && rm -f /etc/yum.repos.d/fedora-rawhide.repo
 
 # Add core user to gpio and i2c groups for hardware access
 RUN usermod -aG gpio,i2c core 2>/dev/null || true
