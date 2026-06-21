@@ -25,8 +25,11 @@ RUN printf '[fedora-42]\nname=Fedora 42\nmetalink=https://mirrors.fedoraproject.
     && dnf clean all \
     && rm -f /etc/yum.repos.d/fedora-42.repo
 
-# Add core user to gpio and i2c groups for hardware access
-RUN usermod -aG gpio,i2c core 2>/dev/null || true
+# Create core user (UID 1000) with gpio/i2c groups at boot via sysusers
+COPY core-user.conf /usr/lib/sysusers.d/50-fw-core.conf
+
+# Create fw-app directories with correct ownership at boot via tmpfiles
+COPY fw-os-dirs.conf /usr/lib/tmpfiles.d/50-fw-os.conf
 
 # Copy Tailscale certificate renewal automation
 COPY tailscale-cert-renew.sh /usr/local/bin/
