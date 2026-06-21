@@ -38,5 +38,4 @@ jobs:
           (echo "ERROR: sync-fw-secrets.sh missing or not executable" && exit 1)
 
         echo "All smoke tests passed"
-    secrets:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    secrets: inherit
