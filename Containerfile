@@ -11,6 +11,10 @@ LABEL org.opencontainers.image.licenses="Apache-2.0"
 LABEL org.opencontainers.image.vendor="tempest-concorde"
 LABEL containers.bootc="1"
 
+# Hummingbird uses a custom ID in os-release that bootc-image-builder
+# doesn't recognize. Add ID_LIKE=fedora so bib finds the Fedora def file.
+RUN grep -q '^ID_LIKE=' /etc/os-release || echo 'ID_LIKE="fedora"' >> /etc/os-release
+
 # Install GPIO/I2C packages for LED matrix control
 # Use Fedora 42 (stable) — Rawhide's Python 3.15 has OpenSSL 4.0 deps
 # that conflict with the base image. Only the C library is needed since
