@@ -1,0 +1,71 @@
+[customizations.installer.kickstart]
+contents = """
+text
+lang en_US.UTF-8
+keyboard us
+timezone UTC
+network --bootproto=dhcp --device=link --activate --onboot=on --hostname=flightwall
+
+zerombr
+clearpart --all --initlabel
+autopart --type=plain
+
+rootpw --lock
+sshkey --username=root "{{ strings.TrimSpace (file.Read (env.Getenv "SSH_KEY_PATH")) }}"
+
+%post
+# ostree registry authentication
+mkdir -p /etc/ostree
+cat > /etc/ostree/auth.json << 'EOF'
+{{ file.Read (env.Getenv "DOCKER_AUTH_PATH") }}
+EOF
+
+# WiFi configuration
+export WIFI_SSID_1="{{ env.Getenv "WIFI_SSID_1" }}"
+export WIFI_PSK_1="{{ env.Getenv "WIFI_PSK_1" }}"
+export WIFI_SSID_2="{{ env.Getenv "WIFI_SSID_2" }}"
+export WIFI_PSK_2="{{ env.Getenv "WIFI_PSK_2" }}"
+
+if [ -n "$WIFI_SSID_1" ] && [ -n "$WIFI_PSK_1" ]; then
+    nmcli connection add type wifi con-name "$WIFI_SSID_1" ssid "$WIFI_SSID_1" \
+        wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$WIFI_PSK_1" \
+        connection.autoconnect yes connection.autoconnect-priority 100
+fi
+
+if [ -n "$WIFI_SSID_2" ] && [ -n "$WIFI_PSK_2" ]; then
+    nmcli connection add type wifi con-name "$WIFI_SSID_2" ssid "$WIFI_SSID_2" \
+        wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$WIFI_PSK_2" \
+        connection.autoconnect yes connection.autoconnect-priority 50
+fi
+
+# Tailscale authentication
+export TAILSCALE_AUTH_KEY="{{ env.Getenv "TAILSCALE_AUTH_KEY" }}"
+
+if [ -n "$TAILSCALE_AUTH_KEY" ]; then
+    systemctl enable --now tailscaled
+    tailscale up --authkey="$TAILSCALE_AUTH_KEY" --ssh --accept-routes
+fi
+
+# SSH hardening
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/99-fw-security.conf << 'SSHEOF'
+PermitRootLogin prohibit-password
+PasswordAuthentication no
+PubkeyAuthentication yes
+MaxAuthTries 3
+ClientAliveInterval 300
+ClientAliveCountMax 2
+SSHEOF
+
+# Enable user-level systemd for quadlet units (fw-app runs rootless)
+loginctl enable-linger core 2>/dev/null || true
+
+# Create fw-app data directory
+mkdir -p /home/core/.fw-app/data
+chown -R 1000:1000 /home/core/.fw-app
+
+%end
+
+reboot --eject
+
+"""
