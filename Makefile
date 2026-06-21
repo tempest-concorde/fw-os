@@ -6,7 +6,6 @@ TAG ?= latest
 FULL_IMAGE := $(REGISTRY)/$(IMAGE_NAME):$(TAG)
 
 SSH_KEY_PATH ?= $(HOME)/.ssh/id_rsa.pub
-DOCKER_AUTH_PATH ?= $(PWD)/docker-auth.json
 
 TAILSCALE_AUTH_KEY ?=
 WIFI_SSID_1 ?=
@@ -28,7 +27,6 @@ deps: ## Install gomplate for config templating
 toml: deps ## Generate config.toml from template with current env vars
 	@echo "Generating config.toml..."
 	@SSH_KEY_PATH="$(SSH_KEY_PATH)" \
-	 DOCKER_AUTH_PATH="$(DOCKER_AUTH_PATH)" \
 	 TAILSCALE_AUTH_KEY="$(TAILSCALE_AUTH_KEY)" \
 	 WIFI_SSID_1="$(WIFI_SSID_1)" \
 	 WIFI_PSK_1="$(WIFI_PSK_1)" \
@@ -40,7 +38,6 @@ toml: deps ## Generate config.toml from template with current env vars
 check-env: ## Validate required files and credentials
 	@echo "Checking environment..."
 	@test -f "$(SSH_KEY_PATH)" || (echo "ERROR: SSH key not found: $(SSH_KEY_PATH)" && exit 1)
-	@test -f "$(DOCKER_AUTH_PATH)" || (echo "ERROR: Docker auth not found: $(DOCKER_AUTH_PATH)" && exit 1)
 	@test -n "$(WIFI_SSID_1)" || (echo "ERROR: WIFI_SSID_1 not set" && exit 1)
 	@test -n "$(WIFI_PSK_1)" || (echo "ERROR: WIFI_PSK_1 not set" && exit 1)
 	@echo "Environment OK"
@@ -102,7 +99,6 @@ clean: ## Remove build artifacts
 show-config: ## Show current build configuration
 	@echo "Image:      $(FULL_IMAGE)"
 	@echo "SSH key:    $(SSH_KEY_PATH)"
-	@echo "Docker auth: $(DOCKER_AUTH_PATH)"
 	@echo "WiFi SSID:  $(WIFI_SSID_1)"
 	@echo "WiFi SSID2: $(WIFI_SSID_2)"
 	@echo "Tailscale:  $(if $(TAILSCALE_AUTH_KEY),set,not set)"
