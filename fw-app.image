@@ -1,5 +1,5 @@
-# Flight Wall Application Image Pre-pull
-# Quadlet image unit to pre-cache the fw-app container image
+# Flight Wall Application Image
+# Quadlet image unit — pre-pulls fw-app container on boot
 
 [Image]
 Image=ghcr.io/tempest-concorde/fw-app:latest
