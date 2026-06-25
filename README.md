@@ -1,94 +1,151 @@
-# fw-os - Flight Wall Operating System Layer
+# fw-os — Flight Wall Operating System
 
-Application-specific bootc image layer for the Flight Wall project.
+Application-layer bootc image for the Flight Wall LED display, deployed on Raspberry Pi 4.
 
 ## Architecture
 
-This is **Layer 3** in the Flight Wall bootc image stack:
-
 ```
-Layer 3: fw-os (this repo)
+Layer 2: fw-os (this repo)        — GPIO, quadlets, cert renewal, secrets
   ↓ FROM
-Layer 2: ghcr.io/tempest-concorde/fedora-bootc-pi (platform base)
+Layer 1: fedora-bootc-pi          — WiFi, Tailscale, node-exporter, SSH
   ↓ FROM
-Layer 1: quay.io/hummingbird-community/bootc-os (Fedora Hummingbird)
+Base:    quay.io/fedora/fedora-bootc:42
 ```
 
-## What This Layer Adds
+## Deploying to Raspberry Pi 4
 
-On top of the fedora-bootc-pi platform base, fw-os adds:
+### Prerequisites
 
-- **GPIO/I2C packages** for LED matrix control (`python3-libgpiod`, `i2c-tools`)
-- **Tailscale certificate automation** - daily renewal of TLS certs for HTTPS
-- **fw-app quadlet** - systemd container unit for the Flight Wall application
-- **Secret synchronization** - syncs podman secrets into fw-app environment
+- Fedora workstation with `arm-image-installer` installed (`dnf install arm-image-installer`)
+- SD card (32GB+) and card reader
+- Ethernet connection for initial RPi4 setup
+- SSH key pair
 
-## Usage
-
-### Building the Container Image
+### Step 1: Flash Fedora IoT to SD card
 
 ```bash
-podman build --platform linux/arm64 -t ghcr.io/tempest-concorde/fw-os:latest .
+make flash SD_CARD=/dev/mmcblk0 SSH_KEY_PATH=~/.ssh/id_rsa.pub
 ```
 
-### Creating Bootable Media
+This downloads the Fedora IoT aarch64 raw image and writes it to the SD
+card using `arm-image-installer` with your SSH key injected. No root
+password is set — SSH key only.
 
-Use the separate `fw-site-config` repository (private) to build bootable ISOs/disk images with site-specific secrets.
+### Step 2: Boot and connect
 
-## Components
+Insert the SD card into the RPi4, connect ethernet, and power on. Find
+the IP from your router or with:
 
-### Containerfile
+```bash
+nmap -sn 192.168.1.0/24
+```
 
-Inherits from `ghcr.io/tempest-concorde/fedora-bootc-pi:latest` and layers application-specific configuration.
+SSH in:
 
-### Quadlet Units
+```bash
+ssh root@<rpi4-ip>
+```
 
-- `fw-app.container` - Main application container (rootless, UID 1000)
-- `fw-app.image` - Pre-pull fw-app image for offline boot
+### Step 3: Configure WiFi
 
-### Scripts
+```bash
+nmcli device wifi connect "YourSSID" password "YourPassword"
+```
 
-- `tailscale-cert-renew.sh` - Fetches Tailscale TLS certificates
-- `sync-fw-secrets.sh` - Syncs podman secrets to quadlet drop-ins
+Verify connectivity, then ethernet can be disconnected for subsequent
+steps if WiFi is the primary network.
 
-### Systemd Units
+### Step 4: Switch to fw-os
 
-- `tailscale-cert-renew.service` - One-shot cert fetch
-- `tailscale-cert-renew.timer` - Daily + on-boot trigger
+```bash
+bootc switch ghcr.io/tempest-concorde/fw-os:latest
+systemctl reboot
+```
+
+After reboot the system is running fw-os with all Flight Wall
+components. The previous Fedora IoT deployment is preserved for
+rollback (`bootc rollback`).
+
+### Step 5: Configure Tailscale
+
+```bash
+sudo systemctl enable --now tailscaled
+sudo tailscale up --authkey=tskey-auth-xxx --ssh --accept-routes
+```
+
+After this, the RPi4 is accessible via Tailscale SSH from anywhere on
+your tailnet.
+
+### Step 6: Verify
+
+```bash
+# Check bootc status
+bootc status
+
+# Check fw-app container (runs as core user, UID 1000)
+sudo -u core XDG_RUNTIME_DIR=/run/user/1000 podman ps
+
+# Check services
+systemctl status tailscaled
+systemctl --user -M core@ status fw-app
+```
+
+## Updating
+
+fw-os uses bootc for atomic image-based updates:
+
+```bash
+bootc upgrade
+systemctl reboot
+```
+
+Rollback if something breaks:
+
+```bash
+bootc rollback
+systemctl reboot
+```
+
+## ISO path (VM testing)
+
+For testing in VMs without hardware, use the ISO/QCOW2 path:
+
+```bash
+# Requires gomplate + podman
+export SSH_KEY_PATH=~/.ssh/id_rsa.pub
+export WIFI_SSID=MyNetwork
+export WIFI_PSK=MyPassword
+make iso    # or: make qcow
+```
 
 ## Development
 
-### Local Testing
-
 ```bash
-# Build the image
-podman build -t fw-os:dev .
-
-# Run bootc lint
-podman run --rm fw-os:dev bootc container lint
+make container   # Build image locally
+make test-local  # Run interactively
+make show-config # Show current settings
+make help        # All targets
 ```
 
-### CI/CD
+## Components
 
-This repository uses reusable workflows from `tempest-concorde/fw-cicd`:
-
-- **PR builds** - Build + test on ARM64 runner
-- **Semantic release** - Conventional commits → version tags
-- **Container release** - Build + sign + attest + push to GHCR
-- **Cascade trigger** - Rebuilds on `fedora-bootc-pi` releases via `repository_dispatch`
-
-## Hardware Compatibility
-
-Tested on:
-- Raspberry Pi 4 (8GB) - primary target
-- Raspberry Pi 5 - compatible
-
-## License
-
-Apache License 2.0 - see [LICENSE](LICENSE)
+| File | Purpose |
+|---|---|
+| `Containerfile` | Image build — GPIO packages, sysusers, tmpfiles, quadlets |
+| `core-user.conf` | sysusers.d — creates core user (UID 1000) with gpio/i2c groups |
+| `fw-os-dirs.conf` | tmpfiles.d — creates .fw-app data/cert directories |
+| `fw-app.container` | Quadlet — rootless fw-app container unit |
+| `fw-app.image` | Quadlet — pre-pulls fw-app image on boot |
+| `sync-fw-secrets.sh` | Syncs podman secrets into quadlet drop-ins |
+| `tailscale-cert-renew.sh` | Fetches Tailscale TLS certs, updates podman secrets |
+| `tailscale-cert-renew.service/timer` | Daily + on-boot cert renewal |
 
 ## Related Repositories
 
-- [fedora-bootc-pi](https://github.com/tempest-concorde/fedora-bootc-pi) - Platform base layer
-- [fw-app](https://github.com/tempest-concorde/fw-app) - Flight Wall Go application
-- [fw-cicd](https://github.com/tempest-concorde/fw-cicd) - Shared CI/CD workflows
+- [fedora-bootc-pi](https://github.com/tempest-concorde/fedora-bootc-pi) — Platform base layer
+- [fw-app](https://github.com/tempest-concorde/fw-app) — Flight Wall Go application
+- [fw-cicd](https://github.com/tempest-concorde/fw-cicd) — Shared CI/CD workflows
+
+## License
+
+Apache License 2.0
