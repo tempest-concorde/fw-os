@@ -16,8 +16,8 @@ declare -A SECRETS=(
     ["opensky-client-id"]="OPENSKY_CLIENT_ID"
     ["opensky-client-secret"]="OPENSKY_CLIENT_SECRET"
     ["aeroapi-key"]="AEROAPI_KEY"
-    ["tailscale-cert"]="TAILSCALE_CERT_FILE"
-    ["tailscale-key"]="TAILSCALE_KEY_FILE"
+    ["tailscale-cert"]="FW_TLS_CERT_FILE"
+    ["tailscale-key"]="FW_TLS_KEY_FILE"
 )
 
 echo "🔍 Probing podman secret store..."
