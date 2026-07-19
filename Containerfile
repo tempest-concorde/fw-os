@@ -24,6 +24,10 @@ COPY core-user.conf /usr/lib/sysusers.d/50-fw-core.conf
 # Create fw-app directories with correct ownership at boot via tmpfiles
 COPY fw-os-dirs.conf /usr/lib/tmpfiles.d/50-fw-os.conf
 
+# Create subuid/subgid entries for core user at boot via tmpfiles
+# Required for rootless podman user namespace mapping
+COPY subuid-subgid.conf /usr/lib/tmpfiles.d/50-fw-subuid-subgid.conf
+
 # Tailscale certificate renewal automation
 COPY tailscale-cert-renew.sh /usr/local/bin/
 COPY tailscale-cert-renew.service /usr/lib/systemd/system/
@@ -39,5 +43,8 @@ COPY fw-app.image /etc/containers/systemd/users/1000/
 RUN mkdir -p /usr/libexec/fw-os
 COPY sync-fw-secrets.sh /usr/libexec/fw-os/
 RUN chmod +x /usr/libexec/fw-os/sync-fw-secrets.sh
+
+# Set device hostname
+RUN echo 'fw' > /etc/hostname
 
 RUN bootc container lint

@@ -6,7 +6,6 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=core
 ExecStart=/usr/local/bin/tailscale-cert-renew.sh
 StandardOutput=journal
 StandardError=journal
