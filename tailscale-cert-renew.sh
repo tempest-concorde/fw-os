@@ -5,7 +5,7 @@
 set -euo pipefail
 
 CERT_DIR="/var/home/core/.fw-app/certs"
-HOSTNAME="${TAILSCALE_HOSTNAME:-fw}"
+HOSTNAME="${TAILSCALE_HOSTNAME:-$(tailscale status --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('Self',{}).get('DNSName','').rstrip('.'))" 2>/dev/null || echo fw)}"
 
 # Ensure cert directory exists
 mkdir -p "${CERT_DIR}"
