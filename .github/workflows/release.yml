@@ -3,6 +3,13 @@ name: Release
 on:
   push:
     branches: [main]
+  schedule:
+    # Weekly Monday 8:07am UTC — 2h after fedora-bootc-pi cron (6:07am)
+    # Offset from :00 to reduce GitHub Actions queue delays
+    - cron: '7 8 * * 1'
+  repository_dispatch:
+    types: [base-image-updated]
+  workflow_dispatch:
 
 jobs:
   release:
