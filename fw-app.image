@@ -4,5 +4,8 @@
 [Image]
 Image=ghcr.io/tempest-concorde/fw-app:latest
 
+[Service]
+TimeoutStartSec=300
+
 [Install]
 WantedBy=default.target
