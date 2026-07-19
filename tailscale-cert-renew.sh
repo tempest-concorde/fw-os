@@ -5,7 +5,7 @@
 set -euo pipefail
 
 CERT_DIR="/var/home/core/.fw-app/certs"
-HOSTNAME="${TAILSCALE_HOSTNAME:-flightwall}"
+HOSTNAME="${TAILSCALE_HOSTNAME:-fw}"
 
 # Ensure cert directory exists
 mkdir -p "${CERT_DIR}"
