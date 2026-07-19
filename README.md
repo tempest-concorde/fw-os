@@ -134,6 +134,7 @@ make help        # All targets
 | `Containerfile` | Image build — GPIO packages, sysusers, tmpfiles, quadlets |
 | `core-user.conf` | sysusers.d — creates core user (UID 1000) with gpio/i2c groups |
 | `fw-os-dirs.conf` | tmpfiles.d — creates .fw-app data/cert directories |
+| `subuid-subgid.conf` | tmpfiles.d — allocates subuid/subgid ranges for rootless podman |
 | `fw-app.container` | Quadlet — rootless fw-app container unit |
 | `fw-app.image` | Quadlet — pre-pulls fw-app image on boot |
 | `sync-fw-secrets.sh` | Syncs podman secrets into quadlet drop-ins |
