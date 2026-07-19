@@ -1,7 +1,7 @@
 # Flight Wall OS - Application Layer
 # Layer 3: Application-specific configuration on top of fedora-bootc-pi
 
-FROM ghcr.io/tempest-concorde/fedora-bootc-pi:latest
+FROM ghcr.io/tempest-concorde/fedora-bootc-pi:3.0.2
 
 # Metadata
 LABEL org.opencontainers.image.title="Flight Wall OS"
