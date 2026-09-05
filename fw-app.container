@@ -8,7 +8,10 @@ After=network-online.target
 Wants=network-online.target
 
 [Container]
-Image=ghcr.io/tempest-concorde/fw-app:latest
+# Pinned to SemVer tag + SHA256 digest. The Containerfile.fw-app sentinel
+# (same reference) is Dependabot-tracked; the digest-sync workflow keeps this
+# Image= line in sync when fw-app is rebuilt.
+Image=ghcr.io/tempest-concorde/fw-app:1.0.2@sha256:40af653e8ca2c9a55087f864af36e851d53e21d3a3bd82ec813597ca8c1f2365
 ContainerName=fw-app
 Pull=newer
 RunInit=true
