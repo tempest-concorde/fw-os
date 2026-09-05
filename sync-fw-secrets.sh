@@ -48,7 +48,7 @@ for secret_name in "${!ENV_SECRETS[@]}"; do
     if echo "${AVAILABLE_SECRETS}" | grep -q "^${secret_name}$"; then
         DROPIN_CONTENT+="Secret=${secret_name},type=env,target=${env_var}"$'\n'
         echo "  ✓ ${secret_name} → env ${env_var}"
-        ((SECRET_COUNT++))
+        SECRET_COUNT=$((SECRET_COUNT + 1))
     fi
 done
 
@@ -57,7 +57,7 @@ for secret_name in "${!FILE_SECRETS[@]}"; do
     if echo "${AVAILABLE_SECRETS}" | grep -q "^${secret_name}$"; then
         DROPIN_CONTENT+="Secret=${secret_name},type=mount,target=${target},mode=0444"$'\n'
         echo "  ✓ ${secret_name} → file ${target}"
-        ((SECRET_COUNT++))
+        SECRET_COUNT=$((SECRET_COUNT + 1))
     fi
 done
 
