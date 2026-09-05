@@ -46,15 +46,14 @@ SecurityLabelLevel=s0
 # into the image allows the low host port).
 PublishPort=127.0.0.1:443:8443
 
-# Startup
+[Service]
+Restart=always
+RestartSec=10
+# Extend startup timeout for image pull on first boot.
 TimeoutStartSec=300
 # Wait for the system-level secret provisioning oneshot to finish before
 # starting. (A user quadlet cannot Requires= a system unit directly.)
 ExecStartPre=/usr/libexec/fw-os/wait-for-fw-secrets.sh
-
-[Service]
-Restart=always
-RestartSec=10
 
 [Install]
 WantedBy=default.target
