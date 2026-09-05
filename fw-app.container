@@ -27,6 +27,11 @@ Environment=LED_TILES_Y=2
 # Data volume (SQLite database, uploaded images)
 Volume=%h/.fw-app/data:/data:z
 
+# FQDN meta file (written host-side by fw-app-secrets.service) + cert material
+# read by the in-container `fw-app healthcheck`.
+Volume=%h/.fw-app/meta:/run/fw-app/meta:ro
+Volume=%h/.fw-app/certs:/run/fw-app/certs:ro
+
 # Hardware access - LED matrix via GPIO
 # gpiochip devices are the standard interface on modern kernels
 # gpiomem is legacy and may not exist on all RPi4 kernel builds
@@ -36,12 +41,16 @@ AddDevice=/dev/gpiochip1
 # SELinux labels (shared volume context)
 SecurityLabelLevel=s0
 
-# Network - bind to localhost only, Tailscale provides external access
-PublishPort=127.0.0.1:8080:8080
+# Network - bind to localhost only on the host; container serves TLS on 8443
+# and the host publishes 127.0.0.1:443 -> 8443 (unprivileged-port sysctl baked
+# into the image allows the low host port).
+PublishPort=127.0.0.1:443:8443
 
 # Startup
 TimeoutStartSec=300
-ExecStartPre=/usr/libexec/fw-os/sync-fw-secrets.sh
+# Wait for the system-level secret provisioning oneshot to finish before
+# starting. (A user quadlet cannot Requires= a system unit directly.)
+ExecStartPre=/usr/libexec/fw-os/wait-for-fw-secrets.sh
 
 [Service]
 Restart=always

@@ -1,11 +1,15 @@
 [Unit]
 Description=Renew Tailscale TLS Certificate
 Documentation=https://tailscale.com/kb/1153/enabling-https
-After=tailscaled.service network-online.target
+After=tailscaled.service network-online.target fw-app-secrets.service
 Wants=network-online.target
 
 [Service]
 Type=oneshot
+# Run as core so podman secrets are written to core's rootless store
+# (the fw-app quadlet runs as core and must be able to read them).
+User=core
+Group=core
 ExecStart=/usr/local/bin/tailscale-cert-renew.sh
 StandardOutput=journal
 StandardError=journal

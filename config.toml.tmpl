@@ -52,8 +52,9 @@ ClientAliveInterval 300
 ClientAliveCountMax 2
 SSHEOF
 
-# Enable user-level systemd for quadlet units (fw-app runs rootless)
-loginctl enable-linger core 2>/dev/null || true
+# Enable user-level systemd for quadlet units (fw-app runs rootless).
+# Bootc-native: start the core user manager at boot (no first-boot script).
+systemctl enable user@1000.service 2>/dev/null || true
 
 %end
 
