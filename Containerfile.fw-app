@@ -1,0 +1,15 @@
+# Sentinel Containerfile — Dependabot digest hook for the fw-app container
+#
+# IMPORTANT: This file is NOT built and is not part of the fw-os bootc image.
+# Its sole purpose is to give Dependabot's `docker` ecosystem a Dockerfile-style
+# FROM line to track the fw-app image reference (name contains "containerfile",
+# which Dependabot's docker FileFetcher regex matches).
+#
+# The fw-app quadlet units (`fw-app.container`, `fw-app.image`) reference the
+# same image:tag@sha256. When fw-app publishes a rebuild (same tag, new digest)
+# or a new version, Dependabot opens a PR here, and the digest-sync workflow
+# (fw-cicd) propagates the updated reference into the quadlet units.
+#
+# Keep this reference identical to the Image= lines in fw-app.container and
+# fw-app.image — the digest-sync check enforces this on every PR.
+FROM ghcr.io/tempest-concorde/fw-app:1.0.2@sha256:40af653e8ca2c9a55087f864af36e851d53e21d3a3bd82ec813597ca8c1f2365

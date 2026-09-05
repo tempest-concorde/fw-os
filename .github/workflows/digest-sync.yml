@@ -1,0 +1,32 @@
+name: Digest Sync
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Keep the fw-app quadlet Image= lines in sync with the Containerfile.fw-app
+  # sentinel. Dependabot tracks the sentinel's FROM line; when it opens a PR
+  # bumping the fw-app digest, update mode rewrites the quadlet units in the
+  # same PR. Every other PR runs check mode to enforce the invariant.
+  update:
+    name: Sync quadlet digests (Dependabot PR)
+    if: github.actor == 'dependabot[bot]'
+    uses: tempest-concorde/fw-cicd/.github/workflows/digest-sync.yml@main
+    with:
+      mode: update
+      sentinel_file: Containerfile.fw-app
+      quadlet_files: fw-app.container fw-app.image
+    permissions:
+      contents: write
+
+  check:
+    name: Verify quadlet digests match sentinel
+    if: github.actor != 'dependabot[bot]'
+    uses: tempest-concorde/fw-cicd/.github/workflows/digest-sync.yml@main
+    with:
+      mode: check
+      sentinel_file: Containerfile.fw-app
+      quadlet_files: fw-app.container fw-app.image
+    permissions:
+      contents: write
