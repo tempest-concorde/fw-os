@@ -41,10 +41,13 @@ AddDevice=/dev/gpiochip1
 # SELinux labels (shared volume context)
 SecurityLabelLevel=s0
 
-# Network - bind to localhost only on the host; container serves TLS on 8443
-# and the host publishes 127.0.0.1:443 -> 8443 (unprivileged-port sysctl baked
-# into the image allows the low host port).
-PublishPort=127.0.0.1:443:8443
+# Network - bind to all interfaces on the host; container serves TLS on 8443
+# and the host publishes 443 -> 8443 (unprivileged-port sysctl baked into the
+# image allows the low host port). Binding all interfaces (not just loopback)
+# is required so the Tailscale MagicDNS name (fw.story-beta.ts.net, resolved to
+# the tailnet IP) is reachable on :443. Tailscale's ACLs gate external access;
+# the host firewall may additionally restrict non-tailnet interfaces.
+PublishPort=0.0.0.0:443:8443
 
 [Service]
 Restart=always
