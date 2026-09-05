@@ -2,6 +2,10 @@
 # Flight Wall Secret Synchronization Script
 # Modeled on tank-os sync-podman-secrets pattern
 # Probes podman secret store and generates quadlet drop-ins
+#
+# TLS cert/key secrets are mounted as FILES at the app's expected paths
+# (/run/secrets/tls.crt, /run/secrets/tls.key) because the app loads them via
+# tls.LoadX509KeyPair. All other secrets are injected as environment variables.
 
 set -euo pipefail
 
@@ -9,15 +13,20 @@ export XDG_RUNTIME_DIR="/run/user/1000"
 DROPINS_DIR="/var/home/core/.config/containers/systemd/fw-app.container.d"
 DROPIN_FILE="${DROPINS_DIR}/10-secrets.conf"
 
-# Known secret names and their environment variable targets
-declare -A SECRETS=(
+# Environment secrets: secret name -> env var target
+declare -A ENV_SECRETS=(
     ["github-oauth-client-id"]="GITHUB_OAUTH_CLIENT_ID"
     ["github-oauth-client-secret"]="GITHUB_OAUTH_CLIENT_SECRET"
     ["opensky-client-id"]="OPENSKY_CLIENT_ID"
     ["opensky-client-secret"]="OPENSKY_CLIENT_SECRET"
     ["aeroapi-key"]="AEROAPI_KEY"
-    ["tailscale-cert"]="FW_TLS_CERT_FILE"
-    ["tailscale-key"]="FW_TLS_KEY_FILE"
+    ["jwt-secret"]="FW_AUTH_JWT_SECRET"
+)
+
+# File-mount secrets: secret name -> target path inside the container
+declare -A FILE_SECRETS=(
+    ["tailscale-cert"]="/run/secrets/tls.crt"
+    ["tailscale-key"]="/run/secrets/tls.key"
 )
 
 echo "🔍 Probing podman secret store..."
@@ -34,12 +43,20 @@ fi
 DROPIN_CONTENT="[Container]"$'\n'
 SECRET_COUNT=0
 
-for secret_name in "${!SECRETS[@]}"; do
-    env_var="${SECRETS[$secret_name]}"
-
+for secret_name in "${!ENV_SECRETS[@]}"; do
+    env_var="${ENV_SECRETS[$secret_name]}"
     if echo "${AVAILABLE_SECRETS}" | grep -q "^${secret_name}$"; then
         DROPIN_CONTENT+="Secret=${secret_name},type=env,target=${env_var}"$'\n'
-        echo "  ✓ ${secret_name} → ${env_var}"
+        echo "  ✓ ${secret_name} → env ${env_var}"
+        ((SECRET_COUNT++))
+    fi
+done
+
+for secret_name in "${!FILE_SECRETS[@]}"; do
+    target="${FILE_SECRETS[$secret_name]}"
+    if echo "${AVAILABLE_SECRETS}" | grep -q "^${secret_name}$"; then
+        DROPIN_CONTENT+="Secret=${secret_name},type=mount,target=${target},mode=0444"$'\n'
+        echo "  ✓ ${secret_name} → file ${target}"
         ((SECRET_COUNT++))
     fi
 done
