@@ -13,13 +13,15 @@ export XDG_RUNTIME_DIR="/run/user/1000"
 DROPINS_DIR="/var/home/core/.config/containers/systemd/fw-app.container.d"
 DROPIN_FILE="${DROPINS_DIR}/10-secrets.conf"
 
-# Environment secrets: secret name -> env var target
+# Environment secrets: secret name -> env var target (must match fw-app's
+# Viper config: FW_ prefix + '.' -> '_', e.g. auth.github_client_id reads
+# FW_AUTH_GITHUB_CLIENT_ID).
 declare -A ENV_SECRETS=(
-    ["github-oauth-client-id"]="GITHUB_OAUTH_CLIENT_ID"
-    ["github-oauth-client-secret"]="GITHUB_OAUTH_CLIENT_SECRET"
-    ["opensky-client-id"]="OPENSKY_CLIENT_ID"
-    ["opensky-client-secret"]="OPENSKY_CLIENT_SECRET"
-    ["aeroapi-key"]="AEROAPI_KEY"
+    ["github-oauth-client-id"]="FW_AUTH_GITHUB_CLIENT_ID"
+    ["github-oauth-client-secret"]="FW_AUTH_GITHUB_CLIENT_SECRET"
+    ["opensky-client-id"]="FW_OPENSKY_CLIENT_ID"
+    ["opensky-client-secret"]="FW_OPENSKY_CLIENT_SECRET"
+    ["aeroapi-key"]="FW_AEROAPI_KEY"
     ["jwt-secret"]="FW_AUTH_JWT_SECRET"
 )
 
