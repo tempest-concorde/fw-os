@@ -11,8 +11,11 @@ Wants=network-online.target
 # Pinned to SemVer tag + SHA256 digest. The Containerfile.fw-app sentinel
 # (same reference) is Dependabot-tracked; the digest-sync workflow keeps this
 # Image= line in sync when fw-app is rebuilt.
-Image=ghcr.io/tempest-concorde/fw-app:1.0.2@sha256:40af653e8ca2c9a55087f864af36e851d53e21d3a3bd82ec813597ca8c1f2365
+Image=ghcr.io/tempest-concorde/fw-app:1.1.1@sha256:02c8cb9c98d319b2f46a7f87ab5da71be8bc8fe2c14c1284275c5443316444ff
 ContainerName=fw-app
+# Run the HTTP server. The image ENTRYPOINT is /usr/local/bin/fw-app with no
+# CMD, so without Exec= the container just prints help and exits.
+Exec=serve
 Pull=newer
 RunInit=true
 
@@ -41,10 +44,13 @@ AddDevice=/dev/gpiochip1
 # SELinux labels (shared volume context)
 SecurityLabelLevel=s0
 
-# Network - bind to localhost only on the host; container serves TLS on 8443
-# and the host publishes 127.0.0.1:443 -> 8443 (unprivileged-port sysctl baked
-# into the image allows the low host port).
-PublishPort=127.0.0.1:443:8443
+# Network - bind to all interfaces on the host; container serves TLS on 8443
+# and the host publishes 443 -> 8443 (unprivileged-port sysctl baked into the
+# image allows the low host port). Binding all interfaces (not just loopback)
+# is required so the Tailscale MagicDNS name (fw.story-beta.ts.net, resolved to
+# the tailnet IP) is reachable on :443. Tailscale's ACLs gate external access;
+# the host firewall may additionally restrict non-tailnet interfaces.
+PublishPort=0.0.0.0:443:8443
 
 [Service]
 Restart=always
