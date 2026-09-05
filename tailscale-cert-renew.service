@@ -6,10 +6,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-# Run as core so podman secrets are written to core's rootless store
-# (the fw-app quadlet runs as core and must be able to read them).
-User=core
-Group=core
+# Runs as root for tailscaled socket access; podman secrets are imported into
+# core's rootless store via runuser inside the script.
 ExecStart=/usr/local/bin/tailscale-cert-renew.sh
 StandardOutput=journal
 StandardError=journal

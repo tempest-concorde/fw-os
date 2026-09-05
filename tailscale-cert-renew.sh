@@ -5,13 +5,18 @@
 # Robust against first-boot races: waits for tailscaled to be online and for a
 # resolvable MagicDNS name before fetching the certificate. Uses the full FQDN
 # (e.g. fw.story-beta.ts.net); bare hostnames like "fw" are rejected by
-# `tailscale cert`.
+# `tailscale cert`. The tailscale CLI runs as root; podman secrets are imported
+# into CORE's rootless store via runuser.
 
 set -euo pipefail
 
 CERT_DIR="/var/home/core/.fw-app/certs"
 MAX_WAIT=120          # seconds
 INTERVAL=2
+
+run_podman_as_core() {
+    runuser -u core -- env XDG_RUNTIME_DIR=/run/user/1000 "$@"
+}
 
 # Resolve the MagicDNS FQDN once tailscaled is online. Returns non-zero if no
 # valid FQDN could be determined within the timeout.
@@ -53,7 +58,7 @@ echo "  FQDN=${HOSTNAME}"
 mkdir -p "${CERT_DIR}"
 cd "${CERT_DIR}"
 
-# Fetch certificate from Tailscale
+# Fetch certificate from Tailscale (root has socket access)
 echo "📜 Fetching Tailscale certificate for ${HOSTNAME}..."
 tailscale cert "${HOSTNAME}"
 
@@ -62,31 +67,23 @@ if [ ! -f "${HOSTNAME}.crt" ] || [ ! -f "${HOSTNAME}.key" ]; then
     echo "❌ Certificate files not found after fetch"
     exit 1
 fi
+chown core:core "${HOSTNAME}.crt" "${HOSTNAME}.key"
 
 echo "✅ Certificate fetched successfully"
 
-# Update podman secrets (rootless, running as core user)
-export XDG_RUNTIME_DIR="/run/user/1000"
+# Import into core's rootless podman secret store
+echo "🔐 Updating podman secrets (as core)..."
 
-echo "🔐 Updating podman secrets..."
+run_podman_as_core podman secret rm tailscale-cert 2>/dev/null || true
+run_podman_as_core podman secret rm tailscale-key 2>/dev/null || true
 
-# Remove old secrets if they exist
-podman secret rm tailscale-cert 2>/dev/null || true
-podman secret rm tailscale-key 2>/dev/null || true
-
-# Create new secrets
-cat "${HOSTNAME}.crt" | podman secret create tailscale-cert -
-cat "${HOSTNAME}.key" | podman secret create tailscale-key -
+run_podman_as_core podman secret create tailscale-cert - < "${HOSTNAME}.crt"
+run_podman_as_core podman secret create tailscale-key - < "${HOSTNAME}.key"
 
 echo "✅ Podman secrets updated"
 
-# Trigger fw-app restart to pick up new certificates
-if systemctl --user is-active --quiet fw-app.service; then
-    echo "🔄 Restarting fw-app service..."
-    systemctl --user restart fw-app.service
-    echo "✅ Service restarted"
-else
-    echo "ℹ️  fw-app service not running, skipping restart"
-fi
+# Regenerate the quadlet drop-in (as core)
+run_podman_as_core /usr/libexec/fw-os/sync-fw-secrets.sh
+echo "✅ Quadlet drop-in regenerated"
 
 echo "✅ Certificate renewal complete"
