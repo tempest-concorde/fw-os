@@ -21,7 +21,7 @@ RunInit=true
 
 # Application environment
 Environment=GIN_MODE=release
-# fw-app reads the org via Viper FW_ prefix: auth.github_org -> FW_AUTH_GITHUB_ORG
+# Non-secret config follows the same FW_ naming convention as podman secrets.
 Environment=FW_AUTH_GITHUB_ORG=tempest-concorde
 Environment=LED_TILE_W=16
 Environment=LED_TILE_H=16

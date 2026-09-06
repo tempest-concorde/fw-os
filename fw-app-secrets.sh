@@ -104,8 +104,9 @@ for name in tailscale-cert tailscale-key; do
 done
 echo "✅ TLS cert + key secrets present in core's store"
 
-# Operator-provisioned app secrets: warn (not fail) if absent.
-for name in github-oauth-client-id github-oauth-client-secret jwt-secret opensky-client-id opensky-client-secret aeroapi-key; do
+# Operator-provisioned app secrets: warn (not fail) if absent. These are named
+# after the env vars fw-app reads (FW_*), so there's no rename mapping.
+for name in FW_AUTH_GITHUB_CLIENT_ID FW_AUTH_GITHUB_CLIENT_SECRET FW_AUTH_JWT_SECRET FW_OPENSKY_CLIENT_ID FW_OPENSKY_CLIENT_SECRET FW_AEROAPI_KEY; do
     if ! echo "${AVAILABLE}" | grep -qx "${name}"; then
         echo "ℹ️  App secret not provisioned: ${name} (fw-app will report this)"
     fi
