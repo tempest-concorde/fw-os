@@ -1,29 +1,22 @@
 #!/bin/bash
 # Flight Wall Secret Synchronization Script
-# Modeled on tank-os sync-podman-secrets pattern
-# Probes podman secret store and generates quadlet drop-ins
+# Probes the podman secret store and generates quadlet drop-ins.
 #
-# TLS cert/key secrets are mounted as FILES at the app's expected paths
-# (/run/secrets/tls.crt, /run/secrets/tls.key) because the app loads them via
-# tls.LoadX509KeyPair. All other secrets are injected as environment variables.
+# Design:
+#   - Any secret named FW_* is injected as an environment variable with the
+#     SAME name (target = secret name). The podman secret name IS the env var
+#     name fw-app reads, so there is no rename mapping. Provision secrets
+#     directly with the names fw-app expects (e.g. FW_AUTH_GITHUB_CLIENT_ID).
+#   - TLS cert/key are mounted as FILES at the app's expected paths
+#     (/run/secrets/tls.crt, /run/secrets/tls.key) because the app loads them
+#     via tls.LoadX509KeyPair(path). File mounts are the correct model for PEM
+#     material (not env vars).
 
 set -euo pipefail
 
 export XDG_RUNTIME_DIR="/run/user/1000"
 DROPINS_DIR="/var/home/core/.config/containers/systemd/fw-app.container.d"
 DROPIN_FILE="${DROPINS_DIR}/10-secrets.conf"
-
-# Environment secrets: secret name -> env var target (must match fw-app's
-# Viper config: FW_ prefix + '.' -> '_', e.g. auth.github_client_id reads
-# FW_AUTH_GITHUB_CLIENT_ID).
-declare -A ENV_SECRETS=(
-    ["github-oauth-client-id"]="FW_AUTH_GITHUB_CLIENT_ID"
-    ["github-oauth-client-secret"]="FW_AUTH_GITHUB_CLIENT_SECRET"
-    ["opensky-client-id"]="FW_OPENSKY_CLIENT_ID"
-    ["opensky-client-secret"]="FW_OPENSKY_CLIENT_SECRET"
-    ["aeroapi-key"]="FW_AEROAPI_KEY"
-    ["jwt-secret"]="FW_AUTH_JWT_SECRET"
-)
 
 # File-mount secrets: secret name -> target path inside the container
 declare -A FILE_SECRETS=(
@@ -45,14 +38,17 @@ fi
 DROPIN_CONTENT="[Container]"$'\n'
 SECRET_COUNT=0
 
-for secret_name in "${!ENV_SECRETS[@]}"; do
-    env_var="${ENV_SECRETS[$secret_name]}"
-    if echo "${AVAILABLE_SECRETS}" | grep -q "^${secret_name}$"; then
-        DROPIN_CONTENT+="Secret=${secret_name},type=env,target=${env_var}"$'\n'
-        echo "  ✓ ${secret_name} → env ${env_var}"
-        SECRET_COUNT=$((SECRET_COUNT + 1))
-    fi
-done
+# Inject every FW_* secret as an env var with the same name.
+while IFS= read -r secret_name; do
+    [ -z "${secret_name}" ] && continue
+    case "${secret_name}" in
+        FW_*)
+            DROPIN_CONTENT+="Secret=${secret_name},type=env,target=${secret_name}"$'\n'
+            echo "  ✓ ${secret_name} → env ${secret_name}"
+            SECRET_COUNT=$((SECRET_COUNT + 1))
+            ;;
+    esac
+done <<< "${AVAILABLE_SECRETS}"
 
 for secret_name in "${!FILE_SECRETS[@]}"; do
     target="${FILE_SECRETS[$secret_name]}"

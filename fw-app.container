@@ -21,8 +21,8 @@ RunInit=true
 
 # Application environment
 Environment=GIN_MODE=release
-# fw-app reads the org via Viper FW_ prefix: auth.github_org -> FW_AUTH_GITHUB_ORG
-Environment=FW_AUTH_GITHUB_ORG=tempest-concorde
+# Deployment-time non-secret config: FW_AUTH_GITHUB_ORG and FW_SERVER_FQDN.
+EnvironmentFile=/etc/fw-os/fw-app.env
 Environment=LED_TILE_W=16
 Environment=LED_TILE_H=16
 Environment=LED_TILES_X=10
@@ -31,9 +31,7 @@ Environment=LED_TILES_Y=2
 # Data volume (SQLite database, uploaded images)
 Volume=%h/.fw-app/data:/data:z
 
-# FQDN meta file (written host-side by fw-app-secrets.service) + cert material
-# read by the in-container `fw-app healthcheck`.
-Volume=%h/.fw-app/meta:/run/fw-app/meta:ro
+# Tailscale cert material read by the in-container healthcheck.
 Volume=%h/.fw-app/certs:/run/fw-app/certs:ro
 
 # Hardware access - LED matrix via GPIO
@@ -48,8 +46,8 @@ SecurityLabelLevel=s0
 # Network - bind to all interfaces on the host; container serves TLS on 8443
 # and the host publishes 443 -> 8443 (unprivileged-port sysctl baked into the
 # image allows the low host port). Binding all interfaces (not just loopback)
-# is required so the Tailscale MagicDNS name (fw.story-beta.ts.net, resolved to
-# the tailnet IP) is reachable on :443. Tailscale's ACLs gate external access;
+# is required so the configured Tailscale MagicDNS name (resolved to the
+# tailnet IP) is reachable on :443. Tailscale's ACLs gate external access;
 # the host firewall may additionally restrict non-tailnet interfaces.
 PublishPort=0.0.0.0:443:8443
 

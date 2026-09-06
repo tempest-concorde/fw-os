@@ -6,6 +6,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+# Deployment-time non-secret config: FW_SERVER_FQDN.
+EnvironmentFile=/etc/fw-os/fw-app.env
 # Runs as root for tailscaled socket access; podman secrets are imported into
 # core's rootless store via runuser inside the script.
 ExecStart=/usr/local/bin/tailscale-cert-renew.sh
