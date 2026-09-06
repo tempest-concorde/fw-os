@@ -43,6 +43,7 @@ RUN chmod +x /usr/local/bin/tailscale-cert-renew.sh && \
 COPY fw-app-secrets.service /usr/lib/systemd/system/
 COPY fw-app-secrets.sh /usr/libexec/fw-os/
 COPY wait-for-fw-secrets.sh /usr/libexec/fw-os/
+COPY fw-app.env.example /usr/share/fw-os/fw-app.env.example
 RUN chmod +x /usr/libexec/fw-os/fw-app-secrets.sh && \
     chmod +x /usr/libexec/fw-os/wait-for-fw-secrets.sh && \
     systemctl enable fw-app-secrets.service

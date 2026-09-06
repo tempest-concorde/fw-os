@@ -2,56 +2,23 @@
 # Tailscale TLS Certificate Renewal Script
 # Fetches Tailscale TLS certificates and updates podman secrets
 #
-# Robust against first-boot races: waits for tailscaled to be online and for a
-# resolvable MagicDNS name before fetching the certificate. Uses the full FQDN
-# (e.g. fw.story-beta.ts.net); bare hostnames like "fw" are rejected by
-# `tailscale cert`. The tailscale CLI runs as root; podman secrets are imported
-# into CORE's rootless store via runuser.
+# Uses the deployment-time FW_SERVER_FQDN from /etc/fw-os/fw-app.env. The
+# tailscale CLI runs as root; podman secrets are imported into CORE's rootless
+# store via runuser.
 
 set -euo pipefail
 
 CERT_DIR="/var/home/core/.fw-app/certs"
-MAX_WAIT=120          # seconds
-INTERVAL=2
 
 run_podman_as_core() {
     runuser -u core -- env XDG_RUNTIME_DIR=/run/user/1000 "$@"
 }
 
-# Resolve the MagicDNS FQDN once tailscaled is online. Returns non-zero if no
-# valid FQDN could be determined within the timeout.
-resolve_fqdn() {
-    local fqdn=""
-    local waited=0
-    while [ "${waited}" -lt "${MAX_WAIT}" ]; do
-        if [ -n "${TAILSCALE_HOSTNAME:-}" ]; then
-            fqdn="${TAILSCALE_HOSTNAME}"
-        else
-            fqdn="$(tailscale status --json 2>/dev/null | python3 -c "
-import json, sys
-try:
-    d = json.load(sys.stdin)
-    name = d.get('Self', {}).get('DNSName', '')
-    print(name.rstrip('.'))
-except Exception:
-    print('')
-" 2>/dev/null || true)"
-        fi
-        # Must be a fully-qualified MagicDNS name (contains a dot) — bare
-        # hostnames ("fw") are not valid for `tailscale cert`.
-        if [ -n "${fqdn}" ] && [[ "${fqdn}" == *"."* ]] && ! [[ "${fqdn}" == *" "* ]]; then
-            echo "${fqdn}"
-            return 0
-        fi
-        waited=$((waited + INTERVAL))
-        sleep "${INTERVAL}"
-    done
-    echo "ERROR: could not resolve a valid Tailscale MagicDNS FQDN after ${MAX_WAIT}s" >&2
-    tailscale status 2>&1 | head -5 >&2 || true
-    return 1
-}
-
-HOSTNAME="$(resolve_fqdn)"
+HOSTNAME="${FW_SERVER_FQDN:?FW_SERVER_FQDN must be set in /etc/fw-os/fw-app.env}"
+if ! [[ "${HOSTNAME}" == *"."* ]] || [[ "${HOSTNAME}" == *" "* ]]; then
+    echo "ERROR: FW_SERVER_FQDN must be a fully-qualified DNS name: ${HOSTNAME}" >&2
+    exit 1
+fi
 echo "  FQDN=${HOSTNAME}"
 
 # Ensure cert directory exists

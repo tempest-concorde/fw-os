@@ -90,6 +90,45 @@ systemctl status tailscaled
 systemctl --user -M core@ status fw-app
 ```
 
+### Deployment configuration and secrets
+
+Before starting fw-app, create the deployment-specific non-secret config file.
+Do not commit this file: it identifies the GitHub organization allowed to log in
+and the Tailscale FQDN used for the TLS certificate and healthcheck.
+
+```bash
+sudo install -d -m 0755 /etc/fw-os
+sudo cp /usr/share/fw-os/fw-app.env.example /etc/fw-os/fw-app.env
+sudoedit /etc/fw-os/fw-app.env
+```
+
+Set these values for the deployment:
+
+```ini
+FW_AUTH_GITHUB_ORG=your-github-org
+FW_SERVER_FQDN=your-device.your-tailnet.ts.net
+```
+
+Create application secrets in core's rootless podman store. Secret names are
+the exact `FW_*` environment-variable names fw-app consumes; there is no
+secret-name translation. TLS cert/key secrets are generated automatically by
+the Tailscale certificate service and must not be created manually.
+
+```bash
+cd /tmp
+echo '<github-oauth-client-id>' | sudo -u core sh -c 'XDG_RUNTIME_DIR=/run/user/1000 podman secret create FW_AUTH_GITHUB_CLIENT_ID -'
+echo '<github-oauth-client-secret>' | sudo -u core sh -c 'XDG_RUNTIME_DIR=/run/user/1000 podman secret create FW_AUTH_GITHUB_CLIENT_SECRET -'
+echo '<jwt-secret-32-or-more-random-characters>' | sudo -u core sh -c 'XDG_RUNTIME_DIR=/run/user/1000 podman secret create FW_AUTH_JWT_SECRET -'
+```
+
+Restart the provisioning and application services after changing config or
+secrets:
+
+```bash
+sudo systemctl restart fw-app-secrets.service
+sudo -u core sh -c 'XDG_RUNTIME_DIR=/run/user/1000 systemctl --user restart fw-app'
+```
+
 ## Updating
 
 fw-os uses bootc for atomic image-based updates:
@@ -137,6 +176,7 @@ make help        # All targets
 | `subuid-subgid.conf` | tmpfiles.d — allocates subuid/subgid ranges for rootless podman |
 | `fw-app.container` | Quadlet — rootless fw-app container unit |
 | `fw-app.image` | Quadlet — pre-pulls fw-app image on boot |
+| `fw-app.env.example` | Template for deployment-specific GitHub org and Tailscale FQDN |
 | `sync-fw-secrets.sh` | Syncs podman secrets into quadlet drop-ins |
 | `tailscale-cert-renew.sh` | Fetches Tailscale TLS certs, updates podman secrets |
 | `tailscale-cert-renew.service/timer` | Daily + on-boot cert renewal |
