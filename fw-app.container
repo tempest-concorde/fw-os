@@ -21,7 +21,8 @@ RunInit=true
 
 # Application environment
 Environment=GIN_MODE=release
-Environment=GITHUB_ORG=tempest-concorde
+# fw-app reads the org via Viper FW_ prefix: auth.github_org -> FW_AUTH_GITHUB_ORG
+Environment=FW_AUTH_GITHUB_ORG=tempest-concorde
 Environment=LED_TILE_W=16
 Environment=LED_TILE_H=16
 Environment=LED_TILES_X=10
