@@ -1,0 +1,107 @@
+name: Cascade base-image update
+
+on:
+  repository_dispatch:
+    types: [base-image-updated]
+
+# Prompt, idempotent cascade for the base-image edge: when fedora-bootc-pi
+# publishes a new image, propose an fw-os update (Containerfile base reference)
+# as a human-merged pull request, mirroring update-fw-app-ref.yml.
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  cascade:
+    name: Propose fedora-bootc-pi update
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: tempest-concorde
+          repositories: fw-os
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Compute reference and detect change
+        id: ref
+        env:
+          VERSION: ${{ github.event.client_payload.version }}
+          DIGEST: ${{ github.event.client_payload.digest }}
+          REGISTRY: ${{ github.event.client_payload.registry }}
+          IMAGE: ${{ github.event.client_payload.image }}
+          RUN_URL: ${{ github.event.client_payload.run_url }}
+        run: |
+          set -euo pipefail
+          NEW_REF="${REGISTRY}/${IMAGE}:${VERSION}@${DIGEST}"
+          CURRENT=$(grep -E '^FROM ' Containerfile | head -n1 | sed 's/^FROM[[:space:]]*//')
+          {
+            echo "new_ref=${NEW_REF}"
+            echo "version=${VERSION}"
+            echo "run_url=${RUN_URL}"
+          } >> "$GITHUB_OUTPUT"
+          if [ "${CURRENT}" = "${NEW_REF}" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "fw-os base already at ${NEW_REF}; nothing to do"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "fw-os base is ${CURRENT}; will update to ${NEW_REF}"
+          fi
+
+      - name: Update base reference
+        if: steps.ref.outputs.changed == 'true'
+        env:
+          NEW_REF: ${{ steps.ref.outputs.new_ref }}
+        run: |
+          set -euo pipefail
+          sed -i -E "s|^FROM .*|FROM ${NEW_REF}|" Containerfile
+          git diff --stat
+
+      - name: Commit and push cascade branch
+        if: steps.ref.outputs.changed == 'true'
+        env:
+          BRANCH: cascade/base-${{ steps.ref.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add Containerfile
+          git commit -m "chore(deps): update fedora-bootc-pi base to ${{ steps.ref.outputs.version }}"
+          git push --force origin "HEAD:${BRANCH}"
+
+      - name: Open or refresh pull request
+        if: steps.ref.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH: cascade/base-${{ steps.ref.outputs.version }}
+          VERSION: ${{ steps.ref.outputs.version }}
+          RUN_URL: ${{ steps.ref.outputs.run_url }}
+          NEW_REF: ${{ steps.ref.outputs.new_ref }}
+        run: |
+          set -euo pipefail
+          BODY=$(cat <<EOF
+          Automated cascade from the fedora-bootc-pi release \`${VERSION}\`.
+
+          - New base reference: \`${NEW_REF}\`
+          - Triggered by: ${RUN_URL}
+
+          Updates the fw-os \`Containerfile\` base image. Human review and merge required.
+          EOF
+          )
+          if [ "$(gh pr list --head "${BRANCH}" --state open --json number --jq 'length')" = "0" ]; then
+            gh pr create \
+              --title "chore(deps): update fedora-bootc-pi base to ${VERSION}" \
+              --body "${BODY}" \
+              --head "${BRANCH}" \
+              --base main
+          else
+            echo "PR already open for ${BRANCH}; branch refreshed (no duplicate)"
+          fi
