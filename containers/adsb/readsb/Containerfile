@@ -1,15 +1,15 @@
 # readsb decoder image — feature fw-gsd specs/003-usb-adsb-feeder (T003, T039)
-# Multi-stage: build readsb from a pinned upstream commit, run on pinned Fedora 44.
+# Multi-stage: build readsb from a pinned upstream commit, run on pinned Fedora 46.
 #
 # Digest pins (T039, resolved 2026-09-26): quay.io was unreachable from the
 # authoring network, so bases were pivoted to docker.io/library official
 # images — digest-resolved via the Docker Hub API (verified arm64 list entry):
-#   docker.io/library/fedora:44@sha256:43b29f...  (verified arm64 list entry)
-# Fedora 44 base supplies dnf and python3, so the microdnf invocations from
+#   docker.io/library/fedora:46@sha256:a9bab1...  (verified arm64 list entry)
+# Fedora 46 base supplies dnf and python3, so the microdnf invocations from
 # the original fedora-minimal draft become dnf.
 
 # --- builder -----------------------------------------------------------------
-FROM docker.io/library/fedora:44@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80 AS builder
+FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41 AS builder
 
 # Versions come from containers/adsb/versions.env (single source of truth),
 # passed through as build args by .github/workflows/adsb-images.yml.
@@ -26,7 +26,7 @@ RUN make -C /src/readsb -j"$(nproc)" RTLSDR=yes \
  && install -m 0755 /src/readsb/readsb /usr/local/bin/readsb
 
 # --- runtime -----------------------------------------------------------------
-FROM docker.io/library/fedora:44@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41
 
 # rtl-sdr: live device access; python3: http.server for the /data JSON docroot
 # (no readsb built-in HTTP assumed); libusbx/ca-certificates kept explicit.
