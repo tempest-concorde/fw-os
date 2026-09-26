@@ -1,0 +1,48 @@
+# ADS-B feed status aggregator Quadlet
+# User-level systemd container unit (rootless podman)
+# Serves the feed status API + Prometheus metrics on 8081.
+# Feature: fw-gsd specs/003-usb-adsb-feeder (T033); contract: contracts/feed-status.md
+
+[Unit]
+Description=ADS-B Feed Status Aggregator
+Documentation=https://github.com/tempest-concorde/fw-os
+After=network-online.target fw-adsb-readsb.service
+Wants=network-online.target
+
+[Container]
+# Pinned to SemVer tag + SHA256 digest placeholder for first release;
+# the digest-sync workflow fills the digest after the first image build
+# (same convention as fw-app.container).
+Image=ghcr.io/tempest-concorde/fw-adsb-status:0.1.0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+ContainerName=fw-adsb-status
+Pull=newer
+RunInit=true
+
+# Wire targets + configuration. Readsb is always probed; the FR24 probe is
+# skipped unless FW_FR24_ENABLED=true in the deployment env file.
+Environment=FW_ADSB_READSB_URL=http://fw-adsb-readsb:8080
+Environment=FW_ADSB_FR24_URL=http://fw-adsb-fr24feed:8754
+EnvironmentFile=/etc/fw-os/fw-adsb.env
+
+# Internal service network (reaches readsb + fr24feed by container name)
+Network=fw-adsb.network
+
+# Same read-only data view the readsb container writes; used by the
+# receiver-presence marker probe. Named volume is created/owned by the
+# fw-adsb-readsb.service quadlet.
+Volume=fw-adsb-readsb-data:/readsb:ro,z
+
+# Status API + metrics. Tailnet-only at runtime via the fw-adsb-tailnet-bind
+# drop-ins (fw-gsd specs/003-usb-adsb-feeder/contracts/local-data-pull.md).
+PublishPort=8081:8081
+
+# SELinux labels (shared volume context) — mirrors fw-app.container.
+SecurityLabelLevel=s0
+
+[Service]
+Restart=always
+RestartSec=10
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target
