@@ -61,11 +61,12 @@ jobs:
   # ---------------------------------------------------------------------
 
   digest-pin-guard:
-    name: Digest-pin guard (T039 guard — constitution III)
-    # Hard fail while any FROM line in the feature's Containerfiles is not
-    # digest-pinned. EXPECTED TO FAIL on this feature's PRs until the T039
-    # connected-network pinning pass lands — that is the constitution working
-    # as designed (requirements/digest pinning blocks release).
+    name: Digest-pin guard (repo-wide — T008, constitution III)
+    # Hard fail while any FROM line in ANY of the repo's Containerfiles is not
+    # digest-pinned (root Containerfile, Containerfile.fw-app, the
+    # Containerfile.adsb-* sentinels, and everything under containers/adsb/*).
+    # T008 extends the original containers/adsb-only list to a repo-wide
+    # enumeration; `scratch` stages remain exempt.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -73,19 +74,17 @@ jobs:
         run: |
           set -euo pipefail
           failures=0
-          for f in containers/adsb/readsb/Containerfile \
-                   containers/adsb/fr24feed/Containerfile \
-                   containers/adsb/status/Containerfile; do
+          while IFS= read -r f; do
             while IFS= read -r line; do
               image="${line#FROM }"; image="${image%% *}"
               case "$image" in
                 *@sha256:*|scratch) ;;
                 *)
-                  echo "::error file=$f::FROM does not pin a digest: $line"
+                  echo "::error file=${f#./}::FROM does not pin a digest: $line"
                   failures=$((failures+1));;
               esac
-            done < <(grep '^FROM ' "$f")
-          done
+            done < <(grep '^FROM ' "$f" || true)
+          done < <(find . -maxdepth 4 -name 'Containerfile*' -not -path './.git/*')
           [ "$failures" -eq 0 ] || exit 1
 
   hadolint:
