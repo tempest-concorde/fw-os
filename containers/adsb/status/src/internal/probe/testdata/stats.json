@@ -1,0 +1,1 @@
+{"latest": {"start": __NOW__, "end": __NOW__, "local": {"blocks_processed": 1200, "blocks_dropped": 0}, "cpr": {"surface": 2, "airborne": 5}}, "last1min": {"start": __NOW__, "end": __NOW__, "local": {"blocks_processed": 1180}}, "total": {"start": __NOW__, "end": __NOW__, "local": {"blocks_processed": 123456}}}
