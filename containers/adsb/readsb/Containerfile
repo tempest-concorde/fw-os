@@ -1,13 +1,15 @@
-# readsb decoder image — feature fw-gsd specs/003-usb-adsb-feeder (T003)
-# Multi-stage: build readsb from a pinned upstream commit, run on fedora-minimal.
+# readsb decoder image — feature fw-gsd specs/003-usb-adsb-feeder (T003, T039)
+# Multi-stage: build readsb from a pinned upstream commit, run on pinned Fedora 42.
 #
-# TODO(release-gate): pin digests on both FROM lines before first release
-# (ARG FROM_DIGEST= style placeholders below). The CI hadolint/Trivy gate
-# enforces digest pinning later; do NOT commit fabricated digests.
+# Digest pins (T039, resolved 2026-09-26): quay.io was unreachable from the
+# authoring network, so bases were pivoted to docker.io/library official
+# images — digest-resolved via the Docker Hub API (verified arm64 list entry):
+#   docker.io/library/fedora:42@sha256:99e203...  (also covers :latest builder)
+# Fedora 42 base supplies dnf and python3, so the microdnf invocations from
+# the original fedora-minimal draft become dnf.
 
 # --- builder -----------------------------------------------------------------
-# ARG FROM_DIGEST=  # TODO: pin quay.io/fedora/fedora:latest by digest at release
-FROM quay.io/fedora/fedora:latest AS builder
+FROM docker.io/library/fedora:42@sha256:99e203b80b1c3d8f7e161ec10a68fd02b081ef83a3963553e513c82846b97814 AS builder
 
 # Versions come from containers/adsb/versions.env (single source of truth),
 # passed through as build args by .github/workflows/adsb-images.yml.
@@ -24,13 +26,12 @@ RUN make -C /src/readsb -j"$(nproc)" RTLSDR=yes \
  && install -m 0755 /src/readsb/readsb /usr/local/bin/readsb
 
 # --- runtime -----------------------------------------------------------------
-# ARG FROM_DIGEST=  # TODO: pin quay.io/fedora/fedora-minimal:42 by digest at release
-FROM quay.io/fedora/fedora-minimal:42
+FROM docker.io/library/fedora:42@sha256:99e203b80b1c3d8f7e161ec10a68fd02b081ef83a3963553e513c82846b97814
 
 # rtl-sdr: live device access; python3: http.server for the /data JSON docroot
 # (no readsb built-in HTTP assumed); libusbx/ca-certificates kept explicit.
-RUN microdnf install -y rtl-sdr python3 libusbx ca-certificates \
- && microdnf clean all
+RUN dnf install -y rtl-sdr python3 libusbx ca-certificates \
+ && dnf clean all
 
 COPY --from=builder /usr/local/bin/readsb /usr/local/bin/readsb
 COPY entrypoint.sh /usr/local/bin/fw-adsb-readsb-entrypoint.sh

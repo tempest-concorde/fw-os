@@ -1,14 +1,14 @@
-# fw-adsb-status image — feature fw-gsd specs/003-usb-adsb-feeder (T008)
+# fw-adsb-status image — feature fw-gsd specs/003-usb-adsb-feeder (T008, T039)
 # First-party Go status aggregator; stdlib-only, no third-party modules.
+#
+# Digest pins (T039, resolved 2026-09-26 via Docker Hub API; arm64 verified).
 
-# TODO(release): digest-pin builder base before release
-FROM docker.io/library/golang:1.25 AS builder
+FROM docker.io/library/golang:1.25@sha256:699337d620559a59b4a2bb298ad59611e535d2ee755a34cf2d2a98f37578dc80 AS builder
 WORKDIR /src
 COPY src/ ./
 RUN GOFLAGS=-trimpath CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/fw-adsb-status ./cmd/fw-adsb-status
 
-# TODO(release): digest-pin runtime base before release
-FROM quay.io/fedora/fedora-minimal:42
+FROM docker.io/library/fedora:42@sha256:99e203b80b1c3d8f7e161ec10a68fd02b081ef83a3963553e513c82846b97814
 COPY --from=builder /out/fw-adsb-status /usr/local/bin/fw-adsb-status
 
 USER 1001
@@ -18,10 +18,6 @@ ENTRYPOINT ["/usr/local/bin/fw-adsb-status"]
 
 # ---------------------------------------------------------------------------
 # Release-pending items (per fw-os pipeline, research.md Decisions 7/8):
-# - Digest-pin builder base  docker.io/library/golang:1.25
-# - Digest-pin runtime base  quay.io/fedora/fedora-minimal:42
 # - Wire Trivy scan gate + syft SBOM artifact into adsb-images workflow
-# - cosign sign published image quay.io/tempest-concorde/fw-adsb-status
-# - fw-cicd digest-sync cascade for fw-adsb-status.container Image= line
-# - Wire FW_FR24_KEY_PRESENT_MARKER env in fw-adsb-status.container quadlet
+# - cosign sign published image ghcr.io/tempest-concorde/fw-adsb-status
 # ---------------------------------------------------------------------------

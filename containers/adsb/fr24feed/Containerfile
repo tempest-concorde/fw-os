@@ -1,14 +1,13 @@
-# fr24feed official client image — feature fw-gsd specs/003-usb-adsb-feeder (T010, T042)
+# fr24feed official client image — feature fw-gsd specs/003-usb-adsb-feeder (T010, T042, T039)
 # Third-party binary, version+SHA256 pinned via containers/adsb/versions.env
 # (passed as build args by .github/workflows/adsb-images.yml).
 #
-# PENDING-T039-CRITICAL: FROM bases below intentionally carry floating tags
-# until a connected-network pinning pass replaces each with
-# tag@sha256:<resolved>. The digest-pin guard job in
-# .github/workflows/adsb-images.yml enforces this before release.
+# Digest pins (T039, resolved 2026-09-26 via Docker Hub API; arm64 verified):
+# fedora-minimal was unreachable (quay.io blocked from the authoring network),
+# so bases use the official docker.io/library/fedora:42 image — same Fedora 42
+# package set with dnf.
 
-# ARG FROM_DIGEST=  # TODO(T039): pin quay.io/fedora/fedora-minimal:42 by digest
-FROM quay.io/fedora/fedora-minimal:42 AS fr24
+FROM docker.io/library/fedora:42@sha256:99e203b80b1c3d8f7e161ec10a68fd02b081ef83a3963553e513c82846b97814 AS fr24
 
 ARG FR24_FEED_URL
 ARG FR24_FEED_SHA256
@@ -18,7 +17,7 @@ ARG FR24_FEED_SHA256
 RUN [ "${FR24_FEED_SHA256}" != "PENDING" ] \
  || { echo "FR24_FEED_SHA256 must be pinned before building"; exit 1; }
 
-RUN microdnf install -y curl ca-certificates tar gzip && microdnf clean all
+RUN dnf install -y curl ca-certificates tar gzip && dnf clean all
 
 RUN curl -fsSL "${FR24_FEED_URL}" -o /tmp/pkg.tgz \
  && echo "${FR24_FEED_SHA256}  /tmp/pkg.tgz" | sha256sum -c - \
@@ -33,13 +32,12 @@ RUN curl -fsSL "${FR24_FEED_URL}" -o /tmp/pkg.tgz \
 # VERIFY-on-first-build: mlat-client layout/install paths at MLAT_CLIENT_REF —
 # adjust install root or entry script name if upstream packaging changed.
 # ---------------------------------------------------------------------------
-# ARG FROM_DIGEST=  # TODO(T039): pin builder base by digest
-FROM quay.io/fedora/fedora-minimal:42 AS mlat-builder
+FROM docker.io/library/fedora:42@sha256:99e203b80b1c3d8f7e161ec10a68fd02b081ef83a3963553e513c82846b97814 AS mlat-builder
 
 ARG MLAT_CLIENT_REPO
 ARG MLAT_CLIENT_REF
-RUN microdnf install -y git python3 python3-setuptools ca-certificates \
- && microdnf clean all
+RUN dnf install -y git python3 python3-setuptools ca-certificates \
+ && dnf clean all
 RUN git clone --depth 1 --branch "${MLAT_CLIENT_REF}" "${MLAT_CLIENT_REPO}" /tmp/mlat \
  && cd /tmp/mlat \
  && python3 setup.py install --prefix=/usr/local --root=/tmp/mlat-root
@@ -47,14 +45,13 @@ RUN git clone --depth 1 --branch "${MLAT_CLIENT_REF}" "${MLAT_CLIENT_REPO}" /tmp
 # ---------------------------------------------------------------------------
 # Final runtime stage: fr24feed binary + mlat-client + entrypoint.
 # ---------------------------------------------------------------------------
-# ARG FROM_DIGEST=  # TODO(T039): pin runtime base by digest
-FROM quay.io/fedora/fedora-minimal:42
+FROM docker.io/library/fedora:42@sha256:99e203b80b1c3d8f7e161ec10a68fd02b081ef83a3963553e513c82846b97814
 
 # fr24feed spawns mlat-client from PATH (mounted /usr/local/bin) when MLAT is
 # enabled in the rendered config.
 COPY --from=fr24 /out/usr/local/bin/fr24feed /usr/local/bin/fr24feed
 COPY --from=mlat-builder /tmp/mlat-root/usr/local /usr/local
-RUN microdnf install -y python3 && microdnf clean all
+RUN dnf install -y python3 && dnf clean all
 
 COPY entrypoint.sh /usr/local/bin/fw-adsb-fr24feed-entrypoint.sh
 COPY fr24feed.ini.tmpl /usr/local/share/fw-adsb/fr24feed.ini.tmpl
