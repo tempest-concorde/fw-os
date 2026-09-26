@@ -1,0 +1,46 @@
+# ADS-B readsb decoder quadlet (rootless podman, user-level systemd unit)
+# Feature: fw-gsd specs/003-usb-adsb-feeder (T009)
+
+[Unit]
+Description=Flight Wall ADS-B readsb decoder
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+# Pinned to SemVer tag + SHA256 digest (placeholder). The digest-sync workflow
+# fills the digest on first release, mirroring the Containerfile.fw-app
+# sentinel convention (see fw-app.container).
+Image=ghcr.io/tempest-concorde/fw-adsb-readsb:0.1.0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+ContainerName=fw-adsb-readsb
+Pull=newer
+RunInit=true
+
+# RTL-SDR receiver via the stable udev symlink (not /dev/bus/usb — that path
+# varies across hot-plug). Rootless AddDevice fails container start when the
+# node is absent; fw-adsb-readsb-restart.path re-fires on replug.
+AddDevice=/dev/radio-adsb/rtl-sdr0
+
+# JSON output dir (aircraft.json etc.); docroot + data symlink baked into image.
+Volume=fw-adsb-readsb-data:/readsb:z
+
+# Internal ADS-B service network (DNS: fr24feed reaches us as fw-adsb-readsb:30005).
+Network=fw-adsb.network
+
+# SELinux labels (shared volume context)
+SecurityLabelLevel=s0
+
+# HTTP JSON + raw protocol streams. Bound to the tailnet IP at boot by
+# fw-adsb-tailnet-bind unit drop-ins (VERIFY-on-hardware); firewalld policy
+# keeps them unreachable from non-tailnet interfaces.
+PublishPort=8080:8080
+PublishPort=30003:30003
+PublishPort=30005:30005
+
+[Service]
+Restart=always
+RestartSec=10
+# Extend startup timeout for image pull on first boot.
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

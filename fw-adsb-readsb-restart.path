@@ -1,0 +1,16 @@
+# USB hot-plug auto-recovery watcher (FR-001/FR-010)
+# Fires the companion oneshot when the udev symlink appears. Rootless
+# AddDevice on fw-adsb-readsb.container fails container start when the node is
+# absent; this path unit restarts the decoder when the receiver is replugged.
+# VERIFY-on-hardware: confirm PathExists triggers on symlink (not just real
+# nodes) during first RPi4 bring-up.
+
+[Unit]
+Description=Watch for ADS-B receiver (RTL-SDR) device node
+
+[Path]
+PathExists=/dev/radio-adsb/rtl-sdr0
+Unit=fw-adsb-readsb-restart.service
+
+[Install]
+WantedBy=default.target
