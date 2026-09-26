@@ -3,12 +3,16 @@
 #
 # Digest pins (T039, resolved 2026-09-26 via Docker Hub API; arm64 verified).
 
-FROM docker.io/library/golang:1.25@sha256:699337d620559a59b4a2bb298ad59611e535d2ee755a34cf2d2a98f37578dc80 AS builder
+# Go builder: Red Hat hardened Go 1.27 image, digest-pinned (T010, fw-gsd
+# specs/004-fedora-version-alignment). src/go.mod deliberately still declares
+# `go 1.25` — no directive change needed because a 1.27 toolchain correctly
+# builds a `go 1.25` module (builder is newer than the language directive).
+FROM registry.access.redhat.com/hi/go:1.27@sha256:cf54e1f8345bd38401ca8b651b4b0db65c784c23d4ab2b03f97d08a1d8bbbde4 AS builder
 WORKDIR /src
 COPY src/ ./
 RUN GOFLAGS=-trimpath CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/fw-adsb-status ./cmd/fw-adsb-status
 
-FROM docker.io/library/fedora:44@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
+FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41
 COPY --from=builder /out/fw-adsb-status /usr/local/bin/fw-adsb-status
 
 USER 1001
