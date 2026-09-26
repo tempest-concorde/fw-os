@@ -145,6 +145,53 @@ bootc rollback
 systemctl reboot
 ```
 
+## ADS-B feed (USB RTL-SDR → flightradar24)
+
+Adds optional ADS-B reception, local aircraft pull, and flightradar24 sharing
+via three rootless quadlets (`fw-adsb-readsb`, `fw-adsb-fr24feed`,
+`fw-adsb-status` on the `fw-adsb` podman network). Feature spec:
+[fw-gsd specs/003-usb-adsb-feeder](https://github.com/tempest-concorde/fw-gsd/tree/main/specs/003-usb-adsb-feeder).
+
+### Hardware
+
+Plug in a USB RTL-SDR ADS-B antenna (RTL2832U-era dongles, IDs `0bda:2832` /
+`0bda:2838`). The shipped udev rule exposes it as `/dev/radio-adsb/rtl-sdr0`
+(group `adsbrx`); replugging restarts `fw-adsb-readsb` via a user path unit.
+
+### Configure
+
+```bash
+sudo mkdir -p /etc/fw-os
+sudo cp /usr/share/fw-os/fw-adsb.env.example /etc/fw-os/fw-adsb.env
+sudoedit /etc/fw-os/fw-adsb.env   # FW_FR24_ENABLED=true, optional station position
+echo 'YOUR_FR24_SHARING_KEY' | sudo -u core sh -c 'XDG_RUNTIME_DIR=/run/user/1000 podman secret create fr24-sharing-key -'
+sudo -u core sh -c 'XDG_RUNTIME_DIR=/run/user/1000 systemctl --user restart fw-adsb-fr24feed'
+```
+
+The sharing key **never** lives in the env file or image — only in the podman
+secret mounted at `/run/secrets/fr24-sharing-key` inside the fr24feed container.
+
+### Interfaces (tailnet-only at runtime)
+
+| Endpoint | Port | Purpose |
+|---|---|---|
+| `http://<tailscale-ip>:8080/data/aircraft.json` | 8080 | live aircraft snapshot (tar1090 format) |
+| TCP | 30003 | SBS/BaseStation stream |
+| TCP | 30005 | BEAST stream (also feeds fw-adsb-fr24feed internally) |
+| `http://<tailscale-ip>:8081/api/v1/feed/status` | 8081 | aggregated feed status + `/metrics` |
+
+Quadlet `PublishPort` entries bind to the tailscale IPv4 via the boot-time
+`fw-adsb-tailnet-bind.service` drop-ins; do not hand-edit those drop-ins.
+
+### Disable / rollback
+
+```bash
+# keep local pull, stop upstream push
+sudoedit /etc/fw-os/fw-adsb.env   # FW_FR24_ENABLED=false + restart fr24feed (above)
+# full rollback of the feature
+bootc rollback && systemctl reboot
+```
+
 ## ISO path (VM testing)
 
 For testing in VMs without hardware, use the ISO/QCOW2 path:

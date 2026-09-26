@@ -1,0 +1,22 @@
+# Stable device node for USB RTL-SDR ADS-B receivers
+# Feature: fw-gsd specs/003-usb-adsb-feeder (T005)
+#
+# /dev/bus/usb/BBB/DDD nodes renumber on every boot/replug — quadlets cannot
+# reference them safely. This rule gives receivers a stable, group-owned node
+# that the fw-adsb-readsb quadlet binds by name.
+#
+# If multiple receivers are attached, the first enumerated one wins
+# (symlink already exists → second device refuses to overwrite) — deterministic
+# across reboots per spec FR-015. The ignored devices get no symlink.
+
+ACTION!="add", GOTO="fw_rtl_sdr_end"
+
+# RTL dongles (RTL2832U-based: DVB-T demods reused as SDR).
+# GROUP=adsbrx is a project-owned group created by sysusers.d (50-fw-core.conf)
+# — Fedora has no native usb group and `dialout` would be a semantic mismatch.
+ATTR{idVendor}=="0bda", ATTR{idProduct}=="2832", \
+    GROUP="adsbrx", MODE="0660", SYMLINK+="radio-adsb/rtl-sdr0"
+ATTR{idVendor}=="0bda", ATTR{idProduct}=="2838", \
+    GROUP="adsbrx", MODE="0660", SYMLINK+="radio-adsb/rtl-sdr0"
+
+LABEL="fw_rtl_sdr_end"
