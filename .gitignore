@@ -18,6 +18,10 @@ config.toml
 *.swp
 *~
 
+# Go build artifacts (containers/adsb/status)
+containers/adsb/status/src/*.test
+vendor/
+
 # OS files
 .DS_Store
 Thumbs.db
