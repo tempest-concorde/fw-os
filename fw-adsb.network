@@ -1,0 +1,17 @@
+# ADS-B feeder podman network
+# Internal, un-routed service network for the ADS-B feed containers only.
+# The fw-app quadlet and host-published ports stay outside this network.
+# Feature: fw-gsd specs/003-usb-adsb-feeder (T004)
+
+[Network]
+# Containers attach by name via Network=fw-adsb.network in the quadlet units.
+NetworkName=fw-adsb
+# DNS-based service discovery lets fw-adsb-fr24feed reach the decoder as
+# "fw-adsb-readsb:30005" and fw-adsb-status scrape the FR24 status page.
+DisableDNS=false
+# Not intended for inbound host publishing; containers publish nothing on
+# this network themselves. Egress (needed by fr24feed) flows via the host's
+# default route through podman's rootless NAT.
+
+[Install]
+WantedBy=default.target
