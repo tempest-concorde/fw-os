@@ -1,0 +1,67 @@
+name: Pin fr24feed Version
+
+# Manual pin/update helper for the FR24 feed binary (fw-gsd
+# specs/004-fedora-version-alignment, T020). Downloads the tarball at
+# FR24_FEED_URL from containers/adsb/versions.env, computes its SHA256, pins
+# FR24_FEED_VERSION / FR24_FEED_SHA256 plus a recorded_date line, and pushes
+# the bump back to the branch it was dispatched on.
+# dispatch with run branch feat/adsb-feeder until 003 lands on main.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pin-fr24feed:
+    name: Pin fr24feed version + sha256 in versions.env
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Download tarball, compute sha256, update versions.env
+        run: |
+          set -euo pipefail
+          env_file="containers/adsb/versions.env"
+
+          # versions.env is a plain KEY=value env file — source it directly.
+          set -a
+          # shellcheck disable=SC1091
+          source "${env_file}"
+          set +a
+
+          fname="$(basename "${FR24_FEED_URL}")"       # flightradar24_<VERSION>_arm64.tgz
+          version="${fname#flightradar24_}"
+          version="${version%_arm64.tgz}"
+          echo "Resolved FR24 artifact: ${fname} -> version ${version}"
+
+          curl -fsSL "${FR24_FEED_URL}" -o /tmp/fr24feed.tgz
+          sha256="$(sha256sum /tmp/fr24feed.tgz | awk '{print $1}')"
+          recorded="$(date -u +%F)"
+
+          sed -i "s|^FR24_FEED_VERSION=.*|FR24_FEED_VERSION=${version}|" "${env_file}"
+          sed -i "s|^FR24_FEED_SHA256=.*|FR24_FEED_SHA256=${sha256}|" "${env_file}"
+          if grep -q '^# recorded_date: ' "${env_file}"; then
+            sed -i "s|^# recorded_date: .*|# recorded_date: ${recorded}|" "${env_file}"
+          else
+            sed -i "s|^FR24_FEED_SHA256=.*|FR24_FEED_SHA256=${sha256}\n# recorded_date: ${recorded}|" "${env_file}"
+          fi
+
+          git diff -- "${env_file}"
+
+      - name: Commit and push the pin
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add containers/adsb/versions.env
+          if git diff --cached --quiet; then
+            echo "versions.env already pinned at this version/sha256 — nothing to commit"
+            exit 0
+          fi
+          git commit -m "chore(adsb): pin fr24feed version+sha256"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
