@@ -1,0 +1,57 @@
+name: ADS-B Feed Images
+
+# Builds the three fw-adsb-* service images introduced by fw-gsd
+# specs/003-usb-adsb-feeder (T003). Push happens only via release.yml;
+# this workflow proves buildability on every PR (and gates the status
+# service's Go quality pipeline).
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'containers/adsb/**'
+      - '.github/workflows/adsb-images.yml'
+
+jobs:
+  commitlint:
+    name: Lint PR title
+    uses: tempest-concorde/fw-cicd/.github/workflows/commitlint.yml@main
+
+  go-quality:
+    name: Go quality gates (adsb-status)
+    uses: tempest-concorde/fw-cicd/.github/workflows/go-quality.yml@main
+    with:
+      working_directory: containers/adsb/status/src
+
+  build-readsb:
+    name: Build readsb image (no push)
+    uses: tempest-concorde/fw-cicd/.github/workflows/build-container.yml@main
+    with:
+      registry: ghcr.io
+      image_name: tempest-concorde/fw-adsb-readsb
+      platform: linux/arm64
+      containerfile: containers/adsb/readsb/Containerfile
+      push: false
+    secrets: inherit
+
+  build-fr24feed:
+    name: Build fr24feed image (no push)
+    uses: tempest-concorde/fw-cicd/.github/workflows/build-container.yml@main
+    with:
+      registry: ghcr.io
+      image_name: tempest-concorde/fw-adsb-fr24feed
+      platform: linux/arm64
+      containerfile: containers/adsb/fr24feed/Containerfile
+      push: false
+    secrets: inherit
+
+  build-status:
+    name: Build status image (no push)
+    uses: tempest-concorde/fw-cicd/.github/workflows/build-container.yml@main
+    with:
+      registry: ghcr.io
+      image_name: tempest-concorde/fw-adsb-status
+      platform: linux/arm64
+      containerfile: containers/adsb/status/Containerfile
+      push: false
+    secrets: inherit
