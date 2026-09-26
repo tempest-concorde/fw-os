@@ -29,12 +29,13 @@ Network=fw-adsb.network
 # SELinux labels (shared volume context)
 SecurityLabelLevel=s0
 
-# HTTP JSON + raw protocol streams. Bound to the tailnet IP at boot by
-# fw-adsb-tailnet-bind unit drop-ins (VERIFY-on-hardware); firewalld policy
-# keeps them unreachable from non-tailnet interfaces.
-PublishPort=8080:8080
-PublishPort=30003:30003
-PublishPort=30005:30005
+# HTTP JSON + raw protocol streams. Default is LOOPBACK-only (T041 / FR-005):
+# until fw-adsb-tailnet-bind runs, the ports are unreachable from the LAN —
+# the safe pre-bind state. Its drop-ins reset this list and rebind each port
+# to the host's tailscale IPv4 (VERIFY-on-hardware).
+PublishPort=127.0.0.1:8080:8080
+PublishPort=127.0.0.1:30003:30003
+PublishPort=127.0.0.1:30005:30005
 
 [Service]
 Restart=always

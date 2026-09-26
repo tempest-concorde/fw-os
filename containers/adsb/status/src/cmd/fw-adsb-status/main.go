@@ -129,10 +129,11 @@ func parseBool(s string) (bool, error) {
 
 // poller owns the probe cycle and the atomically-swapped snapshot cache.
 type poller struct {
-	cfg      config
-	readsb   *probe.ReadsbProbe
-	fr24     *probe.FR24Probe
-	receiver *probe.ReceiverProbe
+	cfg       config
+	readsb    *probe.ReadsbProbe
+	fr24      *probe.FR24Probe
+	fr24state *probe.FR24StateProbe
+	receiver  *probe.ReceiverProbe
 
 	snap atomic.Pointer[status.Snapshot]
 
@@ -144,12 +145,11 @@ type poller struct {
 
 func newPoller(cfg config) *poller {
 	p := &poller{
-		cfg:      cfg,
-		readsb:   &probe.ReadsbProbe{BaseURL: cfg.readsbURL},
-		receiver: &probe.ReceiverProbe{Dir: cfg.dataDir},
-	}
-	if cfg.fr24Enabled {
-		p.fr24 = &probe.FR24Probe{BaseURL: cfg.fr24URL}
+		cfg:       cfg,
+		readsb:    &probe.ReadsbProbe{BaseURL: cfg.readsbURL},
+		fr24:      &probe.FR24Probe{BaseURL: cfg.fr24URL},
+		fr24state: &probe.FR24StateProbe{Dir: cfg.dataDir},
+		receiver:  &probe.ReceiverProbe{Dir: cfg.dataDir},
 	}
 	p.poll(context.Background()) // seed a sane first snapshot
 	return p
@@ -159,6 +159,14 @@ func (p *poller) snapshot() *status.Snapshot { return p.snap.Load() }
 
 func (p *poller) poll(ctx context.Context) {
 	src := status.Source{PushEnabled: p.cfg.fr24Enabled, KeyPresent: p.cfg.keyPresent}
+
+	// Ground-truth credential state from the fr24 container (T048): overrides
+	// the enabled==configured inference before degraded mapping.
+	if res, err := p.fr24state.Probe(ctx); err != nil {
+		slog.Warn("fr24-state marker probe failed; keeping inference", "err", err)
+	} else {
+		status.ApplyFR24State(&src, res.State, res.Found)
+	}
 
 	if present, err := p.receiver.Probe(ctx); err != nil {
 		slog.Warn("receiver probe failed", "err", err)
@@ -180,7 +188,7 @@ func (p *poller) poll(ctx context.Context) {
 	}
 	p.mu.Unlock()
 
-	if p.cfg.fr24Enabled {
+	if src.PushEnabled {
 		if res, err := p.fr24.Probe(ctx); err != nil {
 			slog.Warn("fr24 probe failed", "err", err) // UpstreamReachable stays false
 		} else {

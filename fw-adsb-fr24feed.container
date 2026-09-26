@@ -27,6 +27,10 @@ EnvironmentFile=/etc/fw-os/fw-adsb.env
 # here only — no PublishPort (spec: internal-network-only).
 Network=fw-adsb.network
 
+# Shared decoder data volume: entrypoint drops the fr24-state credential
+# marker here (T048/FR-017) for fw-adsb-status to read.
+Volume=fw-adsb-readsb-data:/readsb:z
+
 # SELinux labels (shared volume context)
 SecurityLabelLevel=s0
 

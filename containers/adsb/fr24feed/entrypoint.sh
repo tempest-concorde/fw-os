@@ -16,17 +16,32 @@ FW_FR24_LON=${FW_FR24_LON:-}
 FW_FR24_ELEV=${FW_FR24_ELEV:-}
 FW_FR24_MLAT=${FW_FR24_MLAT:-false}
 
+# Credential/runtime state marker (T048, FR-017): the fw-adsb-status service
+# reads this file (shared fw-adsb-readsb-data volume) to distinguish
+# credentials_missing / disabled without inferring from env alone.
+STATE_DIR=${FW_ADSB_STATE_DIR:-/readsb}
+STATE_FILE=$STATE_DIR/fr24-state
+
+write_state() {
+    # Atomic single-line write; guard absence of the dir (e.g. volume unset in
+    # unit tests) so logging never breaks execution.
+    [ -d "$STATE_DIR" ] || return 0
+    echo "$1" > "$STATE_FILE.tmp" && mv "$STATE_FILE.tmp" "$STATE_FILE"
+}
+
 idle() {
     exec tail -f /dev/null
 }
 
 if [ "$FW_FR24_ENABLED" != "true" ]; then
     echo "push disabled (FW_FR24_ENABLED!=true); idling"
+    write_state disabled
     idle
 fi
 
 if [ ! -s "$FW_FR24_SHARING_KEY_FILE" ]; then
     echo "credentials_missing: $FW_FR24_SHARING_KEY_FILE absent or empty; idling"
+    write_state credentials_missing
     idle
 fi
 
@@ -36,16 +51,19 @@ SHARING_KEY=$(cat "$FW_FR24_SHARING_KEY_FILE")
 if { [ -n "$FW_FR24_LAT" ] || [ -n "$FW_FR24_LON" ]; } \
   && ! { [ -n "$FW_FR24_LAT" ] && [ -n "$FW_FR24_LON" ]; }; then
     echo "invalid position: FW_FR24_LAT and FW_FR24_LON must be set together; idling"
+    write_state invalid_position
     idle
 fi
 if [ -n "$FW_FR24_LAT" ] \
   && ! echo "$FW_FR24_LAT" | awk '{ v=$1+0; if (v<0) v=-v; exit !(v<=90) }'; then
     echo "invalid position: |FW_FR24_LAT| must be <= 90; idling"
+    write_state invalid_position
     idle
 fi
 if [ -n "$FW_FR24_LON" ] \
   && ! echo "$FW_FR24_LON" | awk '{ v=$1+0; if (v<0) v=-v; exit !(v<=180) }'; then
     echo "invalid position: |FW_FR24_LON| must be <= 180; idling"
+    write_state invalid_position
     idle
 fi
 
@@ -75,6 +93,9 @@ sed \
     -e "s|\${MLAT_BLOCK}|$(esc "$MLAT_BLOCK")|g" \
     "$TMPL" > "$CONF"
 
-# VERIFY-against-fr24feed-docs: exact long-option spelling of the config
-# argument for the installed fr24feed build.
-exec fr24feed --config-file "$CONF"
+write_state active
+
+# --config-file=<path>: VERIFIED 2026-09-26 via GitHub code search across
+# multiple independent fr24feed deployments (docker-ads-b, balena-ads-b,
+# nixos packaging) — equals form used consistently (T045 fr24 half).
+exec fr24feed --config-file="$CONF"

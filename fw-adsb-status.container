@@ -32,9 +32,10 @@ Network=fw-adsb.network
 # fw-adsb-readsb.service quadlet.
 Volume=fw-adsb-readsb-data:/readsb:ro,z
 
-# Status API + metrics. Tailnet-only at runtime via the fw-adsb-tailnet-bind
-# drop-ins (fw-gsd specs/003-usb-adsb-feeder/contracts/local-data-pull.md).
-PublishPort=8081:8081
+# Status API + metrics. Default is LOOPBACK-only (T041 / FR-005) until the
+# fw-adsb-tailnet-bind drop-ins reset this and rebind to the tailscale IPv4.
+# (fw-gsd specs/003-usb-adsb-feeder/contracts/local-data-pull.md)
+PublishPort=127.0.0.1:8081:8081
 
 # SELinux labels (shared volume context) — mirrors fw-app.container.
 SecurityLabelLevel=s0
