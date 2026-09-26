@@ -55,3 +55,70 @@ jobs:
       containerfile: containers/adsb/status/Containerfile
       push: false
     secrets: inherit
+
+  # ---------------------------------------------------------------------
+  # Convergence additions (fw-gsd specs/003-usb-adsb-feeder Phase 8).
+  # ---------------------------------------------------------------------
+
+  digest-pin-guard:
+    name: Digest-pin guard (T039 guard — constitution III)
+    # Hard fail while any FROM line in the feature's Containerfiles is not
+    # digest-pinned. EXPECTED TO FAIL on this feature's PRs until the T039
+    # connected-network pinning pass lands — that is the constitution working
+    # as designed (requirements/digest pinning blocks release).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Fail if any FROM line is not digest-pinned
+        run: |
+          set -euo pipefail
+          failures=0
+          for f in containers/adsb/readsb/Containerfile \
+                   containers/adsb/fr24feed/Containerfile \
+                   containers/adsb/status/Containerfile; do
+            while IFS= read -r line; do
+              image="${line#FROM }"; image="${image%% *}"
+              case "$image" in
+                *@sha256:*|scratch) ;;
+                *)
+                  echo "::error file=$f::FROM does not pin a digest: $line"
+                  failures=$((failures+1));;
+              esac
+            done < <(grep '^FROM ' "$f")
+          done
+          [ "$failures" -eq 0 ] || exit 1
+
+  hadolint:
+    name: Lint Containerfiles (T046)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: hadolint readsb
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf  # v3.1.0
+        with:
+          dockerfile: containers/adsb/readsb/Containerfile
+      - name: hadolint fr24feed
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf  # v3.1.0
+        with:
+          dockerfile: containers/adsb/fr24feed/Containerfile
+      - name: hadolint status
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf  # v3.1.0
+        with:
+          dockerfile: containers/adsb/status/Containerfile
+
+  tests:
+    name: Python test suites (T044 — recorded-replay tier)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Install podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+      - name: Contract tests (offline subset skips live checks)
+        run: python3 -m unittest discover -s tests/contract -v
+      - name: Build readsb image for recorded replay (amd64 OK — source-built decoder)
+        run: podman build -t ghcr.io/tempest-concorde/fw-adsb-readsb:test \
+               -f containers/adsb/readsb/Containerfile .
+      - name: Integration tests (recorded BEAST replay + streams)
+        run: python3 -m unittest discover -s tests/integration -v

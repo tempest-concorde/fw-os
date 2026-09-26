@@ -1,0 +1,15 @@
+# Sentinel Containerfile — Dependabot digest hook for the fw-adsb-readsb container
+#
+# IMPORTANT: This file is NOT built and is not part of the fw-os bootc image.
+# The real image is built in-repo from containers/adsb/readsb/Containerfile on
+# release; this sentinel exists so Dependabot's docker FileFetcher tracks the
+# quadlets' shared image:tag@sha256 reference (name contains "containerfile").
+#
+# When a new fw-os release rebuilds fw-adsb-readsb (same tag, new digest) or a
+# new version, Dependabot opens a PR here and the digest-sync workflow
+# propagates the updated reference into the quadlet unit(s).
+#
+# Keep this reference identical to the Image= line in fw-adsb-readsb.container —
+# the digest-sync check (activated under T035 first-release verification)
+# enforces this on every PR.
+FROM ghcr.io/tempest-concorde/fw-adsb-readsb:0.1.0@sha256:0000000000000000000000000000000000000000000000000000000000000000

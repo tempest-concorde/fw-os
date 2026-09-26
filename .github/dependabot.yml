@@ -12,6 +12,44 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+  # ADS-B feed feature (fw-gsd specs/003-usb-adsb-feeder, T047): dependency
+  # tracking for the three service Containerfiles.
+  - package-ecosystem: "docker"
+    directory: "/containers/adsb/readsb"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      docker:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+  - package-ecosystem: "docker"
+    directory: "/containers/adsb/fr24feed"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      docker:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+  - package-ecosystem: "docker"
+    directory: "/containers/adsb/status"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      docker:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

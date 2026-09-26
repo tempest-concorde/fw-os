@@ -30,3 +30,44 @@ jobs:
       quadlet_files: fw-app.container fw-app.image
     permissions:
       contents: write
+
+  # -----------------------------------------------------------------
+  # ADS-B feed quadlets (fw-gsd specs/003-usb-adsb-feeder, T049).
+  # Update mode only for now: the sentinel references start as digest
+  # placeholders until the first fw-os release publishes the fw-adsb-*
+  # images, and check-mode's manifest-resolution step would falsely fail
+  # until then. Activation of the adsb check-mode jobs is part of the
+  # T035 first-release verification task.
+  # -----------------------------------------------------------------
+  update-adsb-readsb:
+    name: Sync adsb readsb digest (Dependabot PR)
+    if: github.actor == 'dependabot[bot]'
+    uses: tempest-concorde/fw-cicd/.github/workflows/digest-sync.yml@main
+    with:
+      mode: update
+      sentinel_file: Containerfile.adsb-readsb
+      quadlet_files: fw-adsb-readsb.container
+    permissions:
+      contents: write
+
+  update-adsb-fr24feed:
+    name: Sync adsb fr24feed digest (Dependabot PR)
+    if: github.actor == 'dependabot[bot]'
+    uses: tempest-concorde/fw-cicd/.github/workflows/digest-sync.yml@main
+    with:
+      mode: update
+      sentinel_file: Containerfile.adsb-fr24feed
+      quadlet_files: fw-adsb-fr24feed.container
+    permissions:
+      contents: write
+
+  update-adsb-status:
+    name: Sync adsb status digest (Dependabot PR)
+    if: github.actor == 'dependabot[bot]'
+    uses: tempest-concorde/fw-cicd/.github/workflows/digest-sync.yml@main
+    with:
+      mode: update
+      sentinel_file: Containerfile.adsb-status
+      quadlet_files: fw-adsb-status.container
+    permissions:
+      contents: write
