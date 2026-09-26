@@ -1,0 +1,47 @@
+# readsb decoder image — feature fw-gsd specs/003-usb-adsb-feeder (T003)
+# Multi-stage: build readsb from a pinned upstream commit, run on fedora-minimal.
+#
+# TODO(release-gate): pin digests on both FROM lines before first release
+# (ARG FROM_DIGEST= style placeholders below). The CI hadolint/Trivy gate
+# enforces digest pinning later; do NOT commit fabricated digests.
+
+# --- builder -----------------------------------------------------------------
+# ARG FROM_DIGEST=  # TODO: pin quay.io/fedora/fedora:latest by digest at release
+FROM quay.io/fedora/fedora:latest AS builder
+
+# Versions come from containers/adsb/versions.env (single source of truth),
+# passed through as build args by .github/workflows/adsb-images.yml.
+ARG READSB_REPO
+ARG READSB_COMMIT
+
+RUN dnf install -y gcc make git rtl-sdr-devel ncurses-devel && dnf clean all
+
+RUN git clone "${READSB_REPO}" /src/readsb \
+ && git -C /src/readsb checkout "${READSB_COMMIT}"
+
+# Upstream Makefile produces ./readsb and ./viewadsb in the repo root.
+RUN make -C /src/readsb -j"$(nproc)" RTLSDR=yes \
+ && install -m 0755 /src/readsb/readsb /usr/local/bin/readsb
+
+# --- runtime -----------------------------------------------------------------
+# ARG FROM_DIGEST=  # TODO: pin quay.io/fedora/fedora-minimal:42 by digest at release
+FROM quay.io/fedora/fedora-minimal:42
+
+# rtl-sdr: live device access; python3: http.server for the /data JSON docroot
+# (no readsb built-in HTTP assumed); libusbx/ca-certificates kept explicit.
+RUN microdnf install -y rtl-sdr python3 libusbx ca-certificates \
+ && microdnf clean all
+
+COPY --from=builder /usr/local/bin/readsb /usr/local/bin/readsb
+COPY entrypoint.sh /usr/local/bin/fw-adsb-readsb-entrypoint.sh
+RUN chmod 0755 /usr/local/bin/fw-adsb-readsb-entrypoint.sh
+
+# Docroot served by python3 http.server; /docroot/data -> /readsb so readsb's
+# JSON output appears as /data/aircraft.json (tar1090 convention).
+RUN mkdir -p /readsb /docroot \
+ && ln -s /readsb /docroot/data \
+ && chown -R 1001:0 /readsb
+
+USER 1001
+
+ENTRYPOINT ["/usr/local/bin/fw-adsb-readsb-entrypoint.sh"]
