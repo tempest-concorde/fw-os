@@ -1,0 +1,19 @@
+# Bind ADS-B feed quadlet ports to the Tailscale IPv4 at boot.
+# Runs once network and tailscaled are up, before user quadlets serve traffic.
+# Feature: fw-gsd specs/003-usb-adsb-feeder (T012)
+
+[Unit]
+Description=Bind ADS-B feed ports to tailnet IPv4
+Documentation=man:quadlet(5)
+After=tailscaled.service network-online.target
+Wants=network-online.target
+# Regenerate bindings whenever the tailscale IP could plausibly change.
+PartOf=tailscaled.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/usr/libexec/fw-os/fw-adsb-tailnet-bind.sh
+
+[Install]
+WantedBy=multi-user.target
