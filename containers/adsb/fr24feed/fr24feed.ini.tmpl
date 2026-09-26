@@ -1,0 +1,29 @@
+# fr24feed.ini template — feature fw-gsd specs/003-usb-adsb-feeder (T012)
+# Rendered at container start by fw-adsb-fr24feed-entrypoint.sh into tmpfs
+# (/tmp/fr24feed.ini, umask 077) — never baked into the image, never bind-mounted.
+# ${...} placeholders are substituted via sed; structure mirrors the generic
+# official fr24feed.ini. VERIFY-against-fr24feed-docs at build-time
+# verification: exact key names/values for the pinned FR24_FEED_VERSION.
+
+# Account key — injected from podman secret `fr24-sharing-key` (never in git).
+fr24key="${SHARING_KEY}"
+
+# FR24 radar label for this station.
+radar="${STATION_NAME}"
+
+# Station position (empty values tolerated when MLAT is off; FR24-side
+# registration applies the coordinates captured at key provisioning).
+lat="${LAT}"
+lon="${LON}"
+elev="${ELEV}"
+
+# Pull decoded frames from the fw-adsb-readsb container's BEAST output.
+receiver="beast"
+host="fw-adsb-readsb:30005"
+bs="yes"
+raw="yes"
+logmode="1"
+
+# Multilateration block (expanded by the entrypoint: "yes" only when
+# FW_FR24_MLAT=true AND station position is fully set — spec FR-012).
+${MLAT_BLOCK}
