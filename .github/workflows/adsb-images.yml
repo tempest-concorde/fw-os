@@ -144,8 +144,8 @@ jobs:
           set -o pipefail
           podman build -t ghcr.io/tempest-concorde/fw-adsb-readsb:test \
             -f containers/adsb/readsb/Containerfile . >/tmp/build.log 2>&1 \
-          || { echo "::error::$(tail -c 3000 /tmp/build.log)"; exit 1; }
+          || { echo "::error::payload=$(tail -c 3000 /tmp/build.log | base64 -w0)"; exit 1; }
       - name: Integration tests (recorded BEAST replay + streams)
         run: |
           python3 -m unittest discover -s tests/integration -v >/tmp/it.log 2>&1 \
-          || { echo "::error::$(tail -c 3000 /tmp/it.log)"; exit 1; }
+          || { echo "::error::payload=$(tail -c 3000 /tmp/it.log | base64 -w0)"; exit 1; }
