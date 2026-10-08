@@ -11,7 +11,7 @@ Wants=network-online.target
 # Pinned to SemVer tag + SHA256 digest (placeholder). The digest-sync workflow
 # fills the digest on first release, mirroring the Containerfile.fw-app
 # sentinel convention (see fw-app.container).
-Image=ghcr.io/tempest-concorde/fw-adsb-fr24feed:0.1.0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+Image=ghcr.io/tempest-concorde/fw-adsb-fr24feed:v2.2.16@sha256:e0d33fd8e67a0779ace703ee573b979ed35c0aeb9cd787983b967a29849209ba
 ContainerName=fw-adsb-fr24feed
 Pull=newer
 RunInit=true

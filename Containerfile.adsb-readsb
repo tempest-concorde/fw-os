@@ -12,4 +12,4 @@
 # Keep this reference identical to the Image= line in fw-adsb-readsb.container —
 # the digest-sync check (activated under T035 first-release verification)
 # enforces this on every PR.
-FROM ghcr.io/tempest-concorde/fw-adsb-readsb:0.1.0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+FROM ghcr.io/tempest-concorde/fw-adsb-readsb:v2.2.16@sha256:e309858b7d00114f870cee8b74e80038f039e39cac28e6eebb8a5e6f746de939
