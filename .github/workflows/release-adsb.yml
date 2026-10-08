@@ -1,0 +1,157 @@
+name: Release ADS-B Images
+
+# ADS-B feed service image release (fw-gsd specs/003-usb-adsb-feeder, T035).
+# Lives in its OWN workflow file after the 2026-10-08 evaluation-failure
+# incident (invalid reusable-workflow semantics killed the whole OS release
+# pipeline): isolating these jobs keeps the blast radius on the ADS-B lane.
+#
+# Trigger shape mirrors metadata: evaluates on main pushes; the fr24feed
+# jobs gate on the versions.env PENDING flag just like the PR-tier workflow.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Resolve release version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - id: tag
+        run: |
+          git fetch --tags -q
+          TAG=$(git tag -l 'v*' | sort -t. -k1.2,1.3n -k2,2n -k3,3n | tail -n1)
+          echo "version=${TAG#v:-v2.0.0}" >> "$GITHUB_OUTPUT"
+          echo "version_raw=${TAG}" >> "$GITHUB_OUTPUT"
+
+  adsb-versions:
+    name: Read adsb pinned versions
+    needs: release
+    runs-on: ubuntu-latest
+    outputs:
+      fr24_pin_state: ${{ steps.read.outputs.fr24_pin_state }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - id: read
+        run: |
+          set -a; . containers/adsb/versions.env; set +a
+          state=ok
+          case "${FR24_FEED_SHA256:-PENDING}" in
+            PENDING) state=pending ;;
+          esac
+          echo "fr24_pin_state=${state}" >> "$GITHUB_OUTPUT"
+
+  build-readsb:
+    name: Build & sign fw-adsb-readsb
+    needs: release
+    uses: tempest-concorde/fw-cicd/.github/workflows/build-container.yml@main
+    with:
+      registry: ghcr.io
+      image_name: tempest-concorde/fw-adsb-readsb
+      platform: linux/arm64
+      containerfile: containers/adsb/readsb/Containerfile
+      push: true
+      tags: ${{ needs.release.outputs.version }} latest
+    secrets: inherit
+
+  build-fr24feed:
+    name: Build & sign fw-adsb-fr24feed
+    needs: [release, adsb-versions]
+    if: needs.adsb-versions.outputs.fr24_pin_state == 'ok'
+    uses: tempest-concorde/fw-cicd/.github/workflows/build-container.yml@main
+    with:
+      registry: ghcr.io
+      image_name: tempest-concorde/fw-adsb-fr24feed
+      platform: linux/arm64
+      containerfile: containers/adsb/fr24feed/Containerfile
+      push: true
+      tags: ${{ needs.release.outputs.version }} latest
+    secrets: inherit
+
+  build-status:
+    name: Build & sign fw-adsb-status
+    needs: release
+    uses: tempest-concorde/fw-cicd/.github/workflows/build-container.yml@main
+    with:
+      registry: ghcr.io
+      image_name: tempest-concorde/fw-adsb-status
+      platform: linux/arm64
+      containerfile: containers/adsb/status/Containerfile
+      push: true
+      tags: ${{ needs.release.outputs.version }} latest
+    secrets: inherit
+
+  sign-readsb:
+    name: Sign & attest fw-adsb-readsb
+    needs: [release, build-readsb]
+    uses: tempest-concorde/fw-cicd/.github/workflows/cosign-sign-verify.yml@main
+    with:
+      registry: ghcr.io
+      image_name: tempest-concorde/fw-adsb-readsb
+      image_digest: ${{ needs.build-readsb.outputs.digest }}
+      version: ${{ needs.release.outputs.version }}
+      signing_mode: key
+    secrets: inherit
+
+  sign-fr24feed:
+    name: Sign & attest fw-adsb-fr24feed
+    needs: [release, build-fr24feed]
+    if: needs.build-fr24feed.result == 'success'
+    uses: tempest-concorde/fw-cicd/.github/workflows/cosign-sign-verify.yml@main
+    with:
+      registry: ghcr.io
+      image_name: tempest-concorde/fw-adsb-fr24feed
+      image_digest: ${{ needs.build-fr24feed.outputs.digest }}
+      version: ${{ needs.release.outputs.version }}
+      signing_mode: key
+    secrets: inherit
+
+  sign-status:
+    name: Sign & attest fw-adsb-status
+    needs: [release, build-status]
+    uses: tempest-concorde/fw-cicd/.github/workflows/cosign-sign-verify.yml@main
+    with:
+      registry: ghcr.io
+      image_name: tempest-concorde/fw-adsb-status
+      image_digest: ${{ needs.build-status.outputs.digest }}
+      version: ${{ needs.release.outputs.version }}
+      signing_mode: key
+    secrets: inherit
+
+  sbom-readsb:
+    name: SBOM attest fw-adsb-readsb
+    needs: [release, build-readsb]
+    uses: tempest-concorde/fw-cicd/.github/workflows/sbom-attest.yml@main
+    with:
+      registry: ghcr.io
+      image_name: tempest-concorde/fw-adsb-readsb
+      image_digest: ${{ needs.build-readsb.outputs.digest }}
+      signing_mode: key
+    secrets: inherit
+
+  sbom-fr24feed:
+    name: SBOM attest fw-adsb-fr24feed
+    needs: [release, build-fr24feed]
+    if: needs.build-fr24feed.result == 'success'
+    uses: tempest-concorde/fw-cicd/.github/workflows/sbom-attest.yml@main
+    with:
+      registry: ghcr.io
+      image_name: tempest-concorde/fw-adsb-fr24feed
+      image_digest: ${{ needs.build-fr24feed.outputs.digest }}
+      signing_mode: key
+    secrets: inherit
+
+  sbom-status:
+    name: SBOM attest fw-adsb-status
+    needs: [release, build-status]
+    uses: tempest-concorde/fw-cicd/.github/workflows/sbom-attest.yml@main
+    with:
+      registry: ghcr.io
+      image_name: tempest-concorde/fw-adsb-status
+      image_digest: ${{ needs.build-status.outputs.digest }}
+      signing_mode: key
+    secrets: inherit
