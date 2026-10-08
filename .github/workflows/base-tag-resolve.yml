@@ -7,8 +7,8 @@ name: Base Tag Resolve
 # runner. Gives the new base a `tag@sha256` pair and opens nothing itself —
 # it pushes a branch; the caller opens the PR.
 #
-#   tag:     fedora-bootc-pi release to target, e.g. 4.1.0 (no leading v)
-#   branch:  new branch to create-or-reset from main and push
+#   tag:    fedora-bootc-pi release to target, e.g. 4.1.0 (no leading v)
+#   branch: new branch to create-or-reset from main and push
 
 on:
   workflow_dispatch:
@@ -41,15 +41,29 @@ jobs:
         run: |
           set -euo pipefail
           IMG="ghcr.io/tempest-concorde/fedora-bootc-pi:${{ inputs.tag }}"
-          {
-            # curl-only resolver — no skopeo needed; surface failures as a
-            # base64 check annotation (plain step output is not REST-readable).
-            TOKEN="$(curl -fsSL -u "${GITHUB_ACTOR}:${GITHUB_TOKEN}"               "https://ghcr.io/token?scope=repository:tempest-concorde/fedora-bootc-pi:pull"               | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')"
-            curl -fsSL -D /tmp/hdr -o /tmp/manifest.json               -H "Authorization: Bearer ${TOKEN}"               -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json"               "https://ghcr.io/v2/tempest-concorde/fedora-bootc-pi/manifests/${{ inputs.tag }}"
-            RAW="$(grep -i 'docker-content-digest' /tmp/hdr | awk '{print $2}' | tr -d '\r')"
-            DIGEST="${RAW#sha256:}"
-          } > >(tee /tmp/resolve.log)           || { echo "::error::payload=$(tail -c 3000 /tmp/resolve.log | base64 -w0)"; exit 1; }
-          echo "image=${IMG}" | tee -a "$GITHUB_OUTPUT"
+
+          # curl-only ghcr resolver: token exchange, manifest fetch, digest
+          # from the Docker-Content-Digest header. Failures surface as a
+          # base64 check annotation (plain step output isn't REST-readable).
+          TOKEN="$(curl -fsSL \
+            -u "${GITHUB_ACTOR}:${GITHUB_TOKEN}" \
+            "https://ghcr.io/token?scope=repository:tempest-concorde/fedora-bootc-pi:pull" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')" \
+            || { echo "::error::ghcr token exchange failed"; exit 1; }
+
+          curl -fsSL -D /tmp/hdr -o /tmp/manifest.json \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json" \
+            "https://ghcr.io/v2/tempest-concorde/fedora-bootc-pi/manifests/${{ inputs.tag }}" \
+            || { echo "::error::payload=$(tail -c 2000 /tmp/manifest.json 2>/dev/null | base64 -w0)"; exit 1; }
+
+          RAW="$(awk -F': ' 'tolower($1)=="docker-content-digest" {print $2}' /tmp/hdr | tr -d '\r')"
+          DIGEST="${RAW#sha256:}"
+          if ! printf '%s' "${DIGEST}" | grep -qE '^[0-9a-f]{64}$'; then
+            echo "::error::digest resolution malformed (got '${DIGEST}')::payload=$(tail -c 1500 /tmp/hdr | base64 -w0)"
+            exit 1
+          fi
+
           echo "digest=${DIGEST}" | tee -a "$GITHUB_OUTPUT"
           echo "Resolved ${IMG} -> ${DIGEST}"
 
@@ -69,7 +83,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "${BRANCH}"
-          # Update the header comment pair so tag and comment stay truthful.
+          # Stop stale era-specific comment drift; canonical dataset lives in
+          # fw-gsd FEDORA-BASELINE.md.
           sed -i "s|^# fedora-bootc-pi rebuilds the .* tag (new digest).*release .*\.|# Fedora 46 base — aligned with FEDORA-BASELINE.md (fw-gsd 004).|" Containerfile || true
           git diff --quiet Containerfile && { echo "no change detected — Containerfile already on target"; exit 0; }
           git add Containerfile
