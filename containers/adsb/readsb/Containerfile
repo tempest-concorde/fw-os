@@ -34,9 +34,10 @@ RUN set -a && . /tmp/versions.env && set +a \
 # Log tail is printed unconditionally on failure to stay within the 4096-byte
 # CI annotation cap; command availability is echoed for diagnosis.
 RUN set -x \
- && command -v make gcc git \
- && make -C /src/readsb -j"$(nproc)" RTLSDR=yes >/tmp/make.log 2>&1; rc=$?; \
- tail -n 60 /tmp/make.log; [ "$rc" -eq 0 ] \
+ && ls -la /src/readsb | head -20 \
+ && make -C /src/readsb RTLSDR=yes >/tmp/make.log 2>&1; rc=$?; \
+ wc -c /tmp/make.log; head -c 2048 /tmp/make.log; tail -c 1024 /tmp/make.log; \
+ [ "$rc" -eq 0 ] \
  && install -m 0755 /src/readsb/readsb /usr/local/bin/readsb
 
 # --- runtime -----------------------------------------------------------------
