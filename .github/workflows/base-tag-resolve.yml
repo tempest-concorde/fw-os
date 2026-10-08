@@ -39,10 +39,12 @@ jobs:
 
       - name: Resolve digest for ghcr.io/tempest-concorde/fedora-bootc-pi
         id: base
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           IMG="ghcr.io/tempest-concorde/fedora-bootc-pi:${{ inputs.tag }}"
-          RAW="$(skopeo inspect "docker://${IMG}" \
+          RAW="$(skopeo inspect --creds "${GITHUB_ACTOR}:${GITHUB_TOKEN}" "docker://${IMG}" \
             | python3 -c 'import json,sys; print(json.load(sys.stdin)["Digest"])')"
           # skopeo's Digest carries the sha256: scheme prefix; the FROM
           # reference needs @sha256:<hex> without it.
