@@ -46,6 +46,11 @@ jobs:
           # from the Docker-Content-Digest header. Failures surface as a
           # base64 check annotation (plain step output isn't REST-readable).
           export WANT="${{ inputs.tag }}"
+
+          # TEMP DEBUG: phase annotations pinpoint the failing line.
+          set +e
+          TOKEN="$(curl -fsSL -u "${GITHUB_ACTOR}:${GITHUB_TOKEN}" "https://ghcr.io/token?scope=repository:tempest-concorde/fedora-bootc-pi:pull" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])' 2>/tmp/token.err)"
+          echo "::notice::phase token-exchange rc=$? token_len=${#TOKEN} err=$(head -c 300 /tmp/token.err)"
           TOKEN="$(curl -fsSL \
             -u "${GITHUB_ACTOR}:${GITHUB_TOKEN}" \
             "https://ghcr.io/token?scope=repository:tempest-concorde/fedora-bootc-pi:pull" \
