@@ -34,9 +34,6 @@ jobs:
         with:
           ref: main
 
-      - name: Install skopeo
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq skopeo
-
       - name: Resolve digest for ghcr.io/tempest-concorde/fedora-bootc-pi
         id: base
         env:
@@ -44,11 +41,15 @@ jobs:
         run: |
           set -euo pipefail
           IMG="ghcr.io/tempest-concorde/fedora-bootc-pi:${{ inputs.tag }}"
-          RAW="$(skopeo inspect --creds "${GITHUB_ACTOR}:${GITHUB_TOKEN}" "docker://${IMG}" \
-            | python3 -c 'import json,sys; print(json.load(sys.stdin)["Digest"])')"
-          # skopeo's Digest carries the sha256: scheme prefix; the FROM
-          # reference needs @sha256:<hex> without it.
-          DIGEST="${RAW#sha256:}"
+          {
+            # curl-only resolver — no skopeo needed; surface failures as a
+            # base64 check annotation (plain step output is not REST-readable).
+            TOKEN="$(curl -fsSL -u "${GITHUB_ACTOR}:${GITHUB_TOKEN}"               "https://ghcr.io/token?scope=repository:tempest-concorde/fedora-bootc-pi:pull"               | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')"
+            curl -fsSL -D /tmp/hdr -o /tmp/manifest.json               -H "Authorization: Bearer ${TOKEN}"               -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json"               "https://ghcr.io/v2/tempest-concorde/fedora-bootc-pi/manifests/${{ inputs.tag }}"
+            RAW="$(grep -i 'docker-content-digest' /tmp/hdr | awk '{print $2}' | tr -d '\r')"
+            DIGEST="${RAW#sha256:}"
+          } > >(tee /tmp/resolve.log)           || { echo "::error::payload=$(tail -c 3000 /tmp/resolve.log | base64 -w0)"; exit 1; }
+          echo "image=${IMG}" | tee -a "$GITHUB_OUTPUT"
           echo "digest=${DIGEST}" | tee -a "$GITHUB_OUTPUT"
           echo "Resolved ${IMG} -> ${DIGEST}"
 
