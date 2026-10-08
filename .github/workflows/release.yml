@@ -64,23 +64,6 @@ jobs:
       tags: ${{ needs.release.outputs.new_release_version }} latest
     secrets: inherit
 
-  # Single source of pinned upstream versions for release-time gating. The
-  # fr24feed image build hard-fails while FR24_FEED_SHA256=PENDING (vendor
-  # integrity guardrail, fw-gsd 003 T043): these jobs skip until the
-  # fr24-pin workflow pins the checksum on a connected runner.
-  adsb-versions:
-    name: Read adsb pinned versions
-    needs: release
-    runs-on: ubuntu-latest
-    outputs:
-      fr24_feed_sha256: ${{ steps.read.outputs.fr24_feed_sha256 }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - id: read
-        run: |
-          set -a; . containers/adsb/versions.env; set +a
-          echo "fr24_feed_sha256=${FR24_FEED_SHA256}" >> "$GITHUB_OUTPUT"
-
   build-adsb-fr24feed:
     needs: [release, adsb-versions]
     if: needs.release.outputs.new_release_published == 'true' && needs.adsb-versions.outputs.fr24_feed_sha256 != 'PENDING'
