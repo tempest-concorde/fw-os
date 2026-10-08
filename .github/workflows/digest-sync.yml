@@ -39,6 +39,38 @@ jobs:
   # until then. Activation of the adsb check-mode jobs is part of the
   # T035 first-release verification task.
   # -----------------------------------------------------------------
+  check-adsb-readsb:
+    name: Verify adsb readsb digests match sentinel
+    if: github.actor != 'dependabot[bot]'
+    uses: tempest-concorde/fw-cicd/.github/workflows/digest-sync.yml@main
+    with:
+      mode: check
+      sentinel_file: Containerfile.adsb-readsb
+      quadlet_files: fw-adsb-readsb.container
+    permissions:
+      contents: write
+
+  check-adsb-fr24feed:
+    name: Verify adsb fr24feed digests match sentinel
+    if: github.actor != 'dependabot[bot]'
+    uses: tempest-concorde/fw-cicd/.github/workflows/digest-sync.yml@main
+    with:
+      mode: check
+      sentinel_file: Containerfile.adsb-fr24feed
+      quadlet_files: fw-adsb-fr24feed.container
+    permissions:
+      contents: write
+
+  check-adsb-status:
+    name: Verify adsb status digests match sentinel
+    if: github.actor != 'dependabot[bot]'
+    uses: tempest-concorde/fw-cicd/.github/workflows/digest-sync.yml@main
+    with:
+      mode: check
+      sentinel_file: Containerfile.adsb-status
+      quadlet_files: fw-adsb-status.container
+    permissions:
+      contents: write
   update-adsb-readsb:
     name: Sync adsb readsb digest (Dependabot PR)
     if: github.actor == 'dependabot[bot]'
