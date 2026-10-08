@@ -123,7 +123,7 @@ jobs:
           VERSION=$(grep '^FR24_FEED_VERSION=' containers/adsb/versions.env | cut -d= -f2)
           git commit -m "chore(adsb): pin fr24feed ${VERSION} (version+sha256, FW-GSD 003 T043)" \
             || { echo "::error::commit step failed"; exit 1; }
-          git push -o force-with-lease -u origin "${BRANCH}" > /tmp/push.log 2>&1 \
+          git push --force-with-lease -u origin "${BRANCH}" > /tmp/push.log 2>&1 \
             || { echo "::error::push failed::payload=$(tail -c 1500 /tmp/push.log | base64 -w0)"; exit 1; }
           gh pr create \
             --repo tempest-concorde/fw-os \
