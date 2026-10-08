@@ -33,10 +33,10 @@ RUN set -a && . /tmp/versions.env && set +a \
 # Upstream Makefile produces ./readsb and ./viewadsb in the repo root.
 # Log tail is printed unconditionally on failure to stay within the 4096-byte
 # CI annotation cap; command availability is echoed for diagnosis.
+# Diagnostics go to stderr>&2: GHA check annotations capture stderr only.
 RUN set -x \
- && ls -la /src/readsb | head -20 \
- && make -C /src/readsb RTLSDR=yes >/tmp/make.log 2>&1; rc=$?; \
- wc -c /tmp/make.log; head -c 2048 /tmp/make.log; tail -c 1024 /tmp/make.log; \
+ && make -C /src/readsb -j"$(nproc)" RTLSDR=yes >/tmp/make.log 2>&1; rc=$?; \
+ tail -c 3000 /tmp/make.log >&2; \
  [ "$rc" -eq 0 ] \
  && install -m 0755 /src/readsb/readsb /usr/local/bin/readsb
 
