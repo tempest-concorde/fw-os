@@ -82,8 +82,8 @@ jobs:
           echo "fr24_feed_sha256=${FR24_FEED_SHA256}" >> "$GITHUB_OUTPUT"
 
   build-adsb-fr24feed:
-    needs: [release, adsb-versions]
-    if: needs.release.outputs.new_release_published == 'true' && needs.adsb-versions.outputs.fr24_feed_sha256 != 'PENDING'
+    needs: release
+    if: needs.release.outputs.new_release_published == 'true'
     uses: tempest-concorde/fw-cicd/.github/workflows/build-container.yml@main
     with:
       registry: ghcr.io
@@ -120,8 +120,8 @@ jobs:
     secrets: inherit
 
   sign-adsb-fr24feed:
-    needs: [release, adsb-versions, build-adsb-fr24feed]
-    if: needs.release.outputs.new_release_published == 'true' && needs.adsb-versions.outputs.fr24_feed_sha256 != 'PENDING'
+    needs: [release, build-adsb-fr24feed]
+    if: needs.release.outputs.new_release_published == 'true'
     uses: tempest-concorde/fw-cicd/.github/workflows/cosign-sign-verify.yml@main
     with:
       registry: ghcr.io
@@ -155,8 +155,8 @@ jobs:
     secrets: inherit
 
   sbom-adsb-fr24feed:
-    needs: [release, adsb-versions, build-adsb-fr24feed]
-    if: needs.release.outputs.new_release_published == 'true' && needs.adsb-versions.outputs.fr24_feed_sha256 != 'PENDING'
+    needs: [release, build-adsb-fr24feed]
+    if: needs.release.outputs.new_release_published == 'true'
     uses: tempest-concorde/fw-cicd/.github/workflows/sbom-attest.yml@main
     with:
       registry: ghcr.io
