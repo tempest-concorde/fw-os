@@ -32,7 +32,10 @@ def image_exists(image):
     )
 
 
-def wait_for_aircraft_json(timeout=60):
+def wait_for_aircraft_json(timeout=60, require_aircraft=True):
+    """Poll /data/aircraft.json until HTTP 200 — and, with require_aircraft,
+    until at least one aircraft is decoded. The replay feeder paces frames at
+    1/s, so the first 200 usually still shows an empty aircraft array."""
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
@@ -40,7 +43,9 @@ def wait_for_aircraft_json(timeout=60):
                 BASE_URL + "/data/aircraft.json", timeout=5
             ) as resp:
                 if resp.getcode() == 200:
-                    return json.loads(resp.read())
+                    doc = json.loads(resp.read())
+                    if not require_aircraft or doc.get("aircraft"):
+                        return doc
         except (OSError, ValueError):
             pass
         time.sleep(1)
