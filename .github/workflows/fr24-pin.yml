@@ -33,7 +33,7 @@ jobs:
           from datetime import date
 
           HOST = "https://repo-feed.flightradar24.com"
-          SUITE = "linux-stable"
+          SUITE = "raspberrypi-stable"
           ARCH = "arm64"
 
           def fail(msg):
@@ -50,6 +50,7 @@ jobs:
               url = f"{HOST}/dists/flightradar24/{SUITE}/binary-{ARCH}/Packages.gz"
               print(f"::notice::fetching {url}")
               body = get(url, 60)
+              print(f"::notice::gz bytes={len(body)}")
               index = gzip.decompress(body).decode("utf-8", "replace")
               import base64 as _b64
               print("::notice::index_head=" + _b64.b64encode(index[:400].encode()).decode())
