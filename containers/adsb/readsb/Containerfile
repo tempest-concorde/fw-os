@@ -1,0 +1,62 @@
+# readsb decoder image — feature fw-gsd specs/003-usb-adsb-feeder (T003, T039)
+# Multi-stage: build readsb from a pinned upstream commit, run on pinned Fedora 46.
+#
+# Digest pins (T039, resolved 2026-09-26): quay.io was unreachable from the
+# authoring network, so bases were pivoted to docker.io/library official
+# images — digest-resolved via the Docker Hub API (verified arm64 list entry):
+#   docker.io/library/fedora:46@sha256:a9bab1...  (verified arm64 list entry)
+# Fedora 46 base supplies dnf and python3, so the microdnf invocations from
+# the original fedora-minimal draft become dnf.
+#
+# Build context is the REPOSITORY ROOT (CI builds with `-f containers/adsb/
+# readsb/Containerfile .`, and podman/installer builds use the same pattern).
+# Versions come from containers/adsb/versions.env (single source of truth),
+# COPYed in and sourced — the fw-cicd reusable build workflow has no
+# build-args input, so ARG passthrough is not an option.
+#
+# Verbose build steps log to /tmp/*.log and print a failure tail on error:
+# CI check annotations cap output at 4096 bytes from the *start* of a step,
+# so a raw dnf/make transcript always hides the actual failing lines.
+
+# --- builder -----------------------------------------------------------------
+FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41 AS builder
+
+COPY containers/adsb/versions.env /tmp/versions.env
+
+RUN dnf install -q -y gcc make git zlib-devel libzstd-devel libusbx-devel rtl-sdr-devel ncurses-devel >/tmp/dnf.log 2>&1 \
+ || { tail -60 /tmp/dnf.log >&2; exit 1; }; dnf clean all
+
+RUN set -a && . /tmp/versions.env && set +a \
+ && git clone --quiet "${READSB_REPO}" /src/readsb \
+ && git -C /src/readsb checkout "${READSB_COMMIT}"
+
+# Upstream Makefile produces ./readsb and ./viewadsb in the repo root.
+# Log tail goes to stderr>&2 on failure (CI annotations capture stderr only).
+RUN make -C /src/readsb -j"$(nproc)" RTLSDR=yes >/tmp/make.log 2>&1 \
+ || { grep -B2 -A2 -E "error:|fatal|undefined|cannot find|ld:|collect2" /tmp/make.log > /tmp/errs.log 2>&1; \
+      tail -40 /tmp/errs.log >&2; exit 1; } \
+ && install -m 0755 /src/readsb/readsb /usr/local/bin/readsb
+
+# --- runtime -----------------------------------------------------------------
+FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41
+
+# rtl-sdr: live device access; python3: http.server for the /data JSON docroot
+# (no readsb built-in HTTP assumed); libusbx/ca-certificates kept explicit.
+RUN dnf install -q -y rtl-sdr python3 libusbx zlib libzstd ca-certificates >/tmp/dnf.log 2>&1 \
+ || { tail -60 /tmp/dnf.log >&2; exit 1; }; dnf clean all
+
+COPY --from=builder /usr/local/bin/readsb /usr/local/bin/readsb
+COPY containers/adsb/readsb/entrypoint.sh /usr/local/bin/fw-adsb-readsb-entrypoint.sh
+COPY containers/adsb/readsb/replay-feeder.py /usr/local/bin/fw-adsb-replay-feeder.py
+RUN chmod 0755 /usr/local/bin/fw-adsb-readsb-entrypoint.sh \
+ && chmod 0755 /usr/local/bin/fw-adsb-replay-feeder.py
+
+# Docroot served by python3 http.server; /docroot/data -> /readsb so readsb's
+# JSON output appears as /data/aircraft.json (tar1090 convention).
+RUN mkdir -p /readsb /docroot \
+ && ln -s /readsb /docroot/data \
+ && chown -R 1001:0 /readsb
+
+USER 1001
+
+ENTRYPOINT ["/usr/local/bin/fw-adsb-readsb-entrypoint.sh"]

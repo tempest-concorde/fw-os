@@ -1,0 +1,12 @@
+# Hadolint policy (fw-gsd specs/003-usb-adsb-feeder, T046).
+#
+# DL3041 ("specify version with dnf install") is skipped: the base image is
+# pinned by digest (constitution III), so the RPM package set is already
+# reproducible — pinning every package version would only fork dnf metadata.
+#
+# SC1091 ("not following source file") is skipped: Containerfiles source
+# containers/adsb/versions.env which is COPYed into the build at build time
+# and therefore unseen by shellcheck.
+ignored:
+  - DL3041
+  - SC1091

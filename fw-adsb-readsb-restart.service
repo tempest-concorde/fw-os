@@ -1,0 +1,10 @@
+# Oneshot fired by fw-adsb-readsb-restart.path when the receiver node appears.
+# try-restart is a no-op if the decoder is not running (e.g. stopped
+# intentionally), keeping manual stops authoritative.
+
+[Unit]
+Description=Restart ADS-B readsb decoder on receiver hot-plug
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl --user try-restart fw-adsb-readsb.service

@@ -1,0 +1,1 @@
+{"now": __NOW__, "messages": 123456, "aircraft": [{"hex": "a1b2c3", "flight": "FWTEST  ", "lat": 50.03, "lon": 8.56, "alt_baro": 36000, "gs": 450.2, "track": 123.4, "seen": 1.2, "seen_pos": 3.4, "messages": 42}]}

@@ -1,0 +1,44 @@
+# FR24 feeder quadlet (rootless podman, user-level systemd unit)
+# Feature: fw-gsd specs/003-usb-adsb-feeder (T013)
+
+[Unit]
+Description=Flight Wall flightradar24 feeder
+# Decoder first: fr24feed connects to fw-adsb-readsb:30005 on the internal network.
+After=fw-adsb-readsb.service network-online.target
+Wants=network-online.target
+
+[Container]
+# Pinned to SemVer tag + SHA256 digest (placeholder). The digest-sync workflow
+# fills the digest on first release, mirroring the Containerfile.fw-app
+# sentinel convention (see fw-app.container).
+Image=ghcr.io/tempest-concorde/fw-adsb-fr24feed:0.1.0@sha256:0000000000000000000000000000000000000000000000000000000000000000
+ContainerName=fw-adsb-fr24feed
+Pull=newer
+RunInit=true
+
+# FR24 sharing key — podman secret, mounted read-only at
+# /run/secrets/fr24-sharing-key; rendered into tmpfs config by the entrypoint.
+Secret=fr24-sharing-key,mode=0400
+
+# Non-secret operator config (copied from fw-adsb.env.example by the operator).
+EnvironmentFile=/etc/fw-os/fw-adsb.env
+
+# Internal ADS-B service network; fr24feed's 8754 status page stays reachable
+# here only — no PublishPort (spec: internal-network-only).
+Network=fw-adsb.network
+
+# Shared decoder data volume: entrypoint drops the fr24-state credential
+# marker here (T048/FR-017) for fw-adsb-status to read.
+Volume=fw-adsb-readsb-data:/readsb:z
+
+# SELinux labels (shared volume context)
+SecurityLabelLevel=s0
+
+[Service]
+Restart=always
+RestartSec=10
+# Extend startup timeout for image pull on first boot.
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

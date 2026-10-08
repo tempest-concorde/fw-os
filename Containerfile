@@ -53,6 +53,32 @@ RUN chmod +x /usr/libexec/fw-os/fw-app-secrets.sh && \
 COPY fw-app.container /etc/containers/systemd/users/1000/
 COPY fw-app.image /etc/containers/systemd/users/1000/
 
+# ---------------------------------------------------------------------------
+# ADS-B feeder feature (fw-gsd specs/003-usb-adsb-feeder)
+# USB RTL-SDR reception, local pull, flightradar24 push, status aggregation.
+# ---------------------------------------------------------------------------
+# udev rule: stable /dev/radio-adsb/rtl-sdr0 symlink, GROUP=adsbrx (group is
+# created by 50-fw-core.conf/sysusers alongside gpio/i2c).
+COPY udev/80-rtl-sdr.rules /usr/lib/udev/rules.d/80-rtl-sdr.rules
+# Operator-facing config template (no secrets; key lives in podman secret
+# fr24-sharing-key). Copied to /etc/fw-os/fw-adsb.env by the operator.
+COPY fw-adsb.env.example /usr/share/fw-os/fw-adsb.env.example
+# Tailnet-only port binding: computes the tailscale IPv4 post-boot and
+# re-publishes the ADS-B ports to it via user-quadlet drop-ins.
+COPY fw-adsb-tailnet-bind.sh /usr/libexec/fw-os/
+COPY fw-adsb-tailnet-bind.service /usr/lib/systemd/system/
+# Rootless quadlet units (network + three services).
+COPY fw-adsb.network /etc/containers/systemd/users/1000/
+COPY fw-adsb-readsb.container /etc/containers/systemd/users/1000/
+COPY fw-adsb-fr24feed.container /etc/containers/systemd/users/1000/
+COPY fw-adsb-status.container /etc/containers/systemd/users/1000/
+# USB hot-plug auto-recovery (plain user units, not quadlets).
+COPY fw-adsb-readsb-restart.path /usr/lib/systemd/user/
+COPY fw-adsb-readsb-restart.service /usr/lib/systemd/user/
+RUN chmod +x /usr/libexec/fw-os/fw-adsb-tailnet-bind.sh && \
+    systemctl enable fw-adsb-tailnet-bind.service && \
+    systemctl --global enable fw-adsb-readsb-restart.path
+
 # Start the core user's systemd instance at boot so the rootless quadlet
 # units under /etc/containers/systemd/users/1000/ are generated and run.
 # Bootc-native equivalent of `loginctl enable-linger core` (no first-boot

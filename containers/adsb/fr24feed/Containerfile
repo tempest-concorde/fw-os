@@ -1,0 +1,71 @@
+# fr24feed official client image — feature fw-gsd specs/003-usb-adsb-feeder (T010, T042, T039)
+# Third-party binary, version+SHA256 pinned via containers/adsb/versions.env
+# (passed as build args by .github/workflows/adsb-images.yml).
+#
+# Digest pins (T039, resolved 2026-09-26 via Docker Hub API; arm64 verified):
+# fedora-minimal was unreachable (quay.io blocked from the authoring network),
+# so bases use the official docker.io/library/fedora:46 image — same Fedora 46
+# package set with dnf.
+
+# Build context is the REPOSITORY ROOT (see readsb/Containerfile for the
+# rationale). Version pins come from containers/adsb/versions.env (single
+# source of truth), COPYed in per stage and sourced — the fw-cicd reusable
+# build workflow has no build-args input.
+
+FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41 AS fr24
+
+COPY containers/adsb/versions.env /tmp/versions.env
+
+# Hard-fail the build until the checksum is pinned — guarantees no unpinned
+# release (research.md Decision 2 vendor-integrity guardrail).
+RUN set -a && . /tmp/versions.env && set +a \
+ && if [ "${FR24_FEED_SHA256}" = "PENDING" ]; then \
+      echo "FR24_FEED_SHA256 must be pinned before building" >&2; exit 1; \
+    fi
+
+RUN dnf install -q -y curl ca-certificates tar gzip && dnf clean all
+
+RUN set -a && . /tmp/versions.env && set +a \
+ && curl -fsSL "${FR24_FEED_URL}" -o /tmp/pkg.tgz \
+ && echo "${FR24_FEED_SHA256}  /tmp/pkg.tgz" > /tmp/pkg.sha \
+ && sha256sum -c /tmp/pkg.sha \
+ && tar -xzf /tmp/pkg.tgz -C /tmp \
+ && find /tmp -type f -name fr24feed \
+      -exec install -m 0755 -D {} /out/usr/local/bin/fr24feed \; -quit \
+ && rm -rf /tmp/pkg.tgz /tmp/pkg.sha /tmp/versions.env
+
+# ---------------------------------------------------------------------------
+# mlat-client (T042): enables opt-in FR24 multilateration (spec FR-012 — only
+# used when FW_FR24_MLAT=true AND station position is configured). Source-built
+# at the pinned tag from containers/adsb/versions.env.
+# VERIFY-on-first-build: mlat-client layout/install paths at MLAT_CLIENT_REF —
+# adjust install root or entry script name if upstream packaging changed.
+# ---------------------------------------------------------------------------
+FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41 AS mlat-builder
+
+COPY containers/adsb/versions.env /tmp/versions.env
+RUN dnf install -q -y git python3 python3-setuptools ca-certificates \
+ && dnf clean all
+RUN set -a && . /tmp/versions.env && set +a \
+ && git clone --depth 1 --branch "${MLAT_CLIENT_REF}" "${MLAT_CLIENT_REPO}" /src/mlat
+WORKDIR /src/mlat
+RUN python3 setup.py install --prefix=/usr/local --root=/tmp/mlat-root
+
+# ---------------------------------------------------------------------------
+# Final runtime stage: fr24feed binary + mlat-client + entrypoint.
+# ---------------------------------------------------------------------------
+FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41
+
+# fr24feed spawns mlat-client from PATH (mounted /usr/local/bin) when MLAT is
+# enabled in the rendered config.
+COPY --from=fr24 /out/usr/local/bin/fr24feed /usr/local/bin/fr24feed
+COPY --from=mlat-builder /tmp/mlat-root/usr/local /usr/local
+RUN dnf install -q -y python3 && dnf clean all
+
+COPY containers/adsb/fr24feed/entrypoint.sh /usr/local/bin/fw-adsb-fr24feed-entrypoint.sh
+COPY containers/adsb/fr24feed/fr24feed.ini.tmpl /usr/local/share/fw-adsb/fr24feed.ini.tmpl
+RUN chmod 0755 /usr/local/bin/fw-adsb-fr24feed-entrypoint.sh
+
+USER 1001
+
+ENTRYPOINT ["/usr/local/bin/fw-adsb-fr24feed-entrypoint.sh"]
