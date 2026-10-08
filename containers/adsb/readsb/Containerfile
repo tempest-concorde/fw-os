@@ -23,7 +23,7 @@ FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac
 
 COPY containers/adsb/versions.env /tmp/versions.env
 
-RUN dnf install -q -y gcc make git zlib-devel libzstd-devel rtl-sdr-devel ncurses-devel >/tmp/dnf.log 2>&1 \
+RUN dnf install -q -y gcc make git zlib-devel libzstd-devel libusbx-devel rtl-sdr-devel ncurses-devel >/tmp/dnf.log 2>&1 \
  || { tail -60 /tmp/dnf.log >&2; exit 1; }; dnf clean all
 
 RUN set -a && . /tmp/versions.env && set +a \
