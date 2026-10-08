@@ -45,7 +45,7 @@ RUN set -a && . /tmp/versions.env && set +a \
    && install -m 0755 /tmp/deb/usr/bin/fr24feed /out/usr/local/bin/fr24feed \
    && rm -rf /tmp/pkg.deb /tmp/pkg.sha /tmp/payload.tar /tmp/deb /tmp/versions.env \
    ) > /tmp/fr24build.log 2>&1 \
- || { tail -40 /tmp/fr24build.log >&2; exit 1; }
+ || { grep -iE "error|fail|exception|traceback|fatal" /tmp/fr24build.log | tail -30 >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
 # mlat-client (T042): enables opt-in FR24 multilateration (spec FR-012 — only
