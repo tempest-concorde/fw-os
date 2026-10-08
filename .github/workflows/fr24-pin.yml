@@ -121,10 +121,13 @@ jobs:
           BRANCH="chore/fr24-pin-$(date -u +%Y%m%d)"
           git checkout -B "${BRANCH}"
           VERSION=$(grep '^FR24_FEED_VERSION=' containers/adsb/versions.env | cut -d= -f2)
-          git commit -m "chore(adsb): pin fr24feed ${VERSION} (version+sha256, FW-GSD 003 T043)"
-          git push -u origin "${BRANCH}"
+          git commit -m "chore(adsb): pin fr24feed ${VERSION} (version+sha256, FW-GSD 003 T043)" \
+            || { echo "::error::commit step failed"; exit 1; }
+          git push -o force-with-lease -u origin "${BRANCH}" > /tmp/push.log 2>&1 \
+            || { echo "::error::push failed::payload=$(tail -c 1500 /tmp/push.log | base64 -w0)"; exit 1; }
           gh pr create \
             --repo tempest-concorde/fw-os \
             --title "chore(adsb): pin fr24feed ${VERSION} (T043)" \
             --body "Automated fr24-pin resolution: packages resolved from the FR24 APT index (raspberrypi-stable/binary-arm64), download verified against the upstream SHA256, versions.env updated. Fills 003 T043 / unblocks the release-time fr24feed build." \
-            --base main --head "${BRANCH}"
+            --base main --head "${BRANCH}" > /tmp/pr.log 2>&1 \
+          || { echo "::error::pr-create failed::payload=$(cat /tmp/pr.log | base64 -w0)"; exit 1; }
