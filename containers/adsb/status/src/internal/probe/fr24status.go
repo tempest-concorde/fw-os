@@ -64,7 +64,7 @@ func (p *FR24Probe) Probe(ctx context.Context) (FR24Result, error) {
 	if err != nil {
 		return FR24Result{}, fmt.Errorf("fr24 status page: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return FR24Result{}, fmt.Errorf("fr24 status page: unexpected status %s", resp.Status)
 	}

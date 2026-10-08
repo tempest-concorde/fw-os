@@ -31,14 +31,18 @@ func serveReadsb(t *testing.T, aircraft, stats string, statsStatus int) *ReadsbP
 		switch r.URL.Path {
 		case "/data/aircraft.json":
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, aircraft)
+			if _, err := fmt.Fprint(w, aircraft); err != nil {
+				t.Errorf("write aircraft response: %v", err)
+			}
 		case "/data/stats.json":
 			if statsStatus != http.StatusOK {
 				w.WriteHeader(statsStatus)
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, stats)
+			if _, err := fmt.Fprint(w, stats); err != nil {
+				t.Errorf("write stats response: %v", err)
+			}
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}

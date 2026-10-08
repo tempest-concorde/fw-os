@@ -294,13 +294,17 @@ func handleMetrics(p *poller) http.HandlerFunc {
 			fmt.Fprintf(&b, "fw_adsb_degraded{state=\"%s\"} %s\n", escLabel(string(st)), active)
 		}
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-		fmt.Fprint(w, b.String())
+		if _, err := fmt.Fprint(w, b.String()); err != nil {
+			slog.Error("write metrics failed", "err", err)
+		}
 	}
 }
 
 func handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	fmt.Fprintln(w, "ok")
+	if _, err := fmt.Fprintln(w, "ok"); err != nil {
+		slog.Error("write healthz failed", "err", err)
+	}
 }
 
 func main() {
