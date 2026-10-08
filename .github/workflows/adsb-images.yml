@@ -138,7 +138,12 @@ jobs:
       - name: Contract tests (offline subset skips live checks)
         run: python3 -m unittest discover -s tests/contract -v
       - name: Build readsb image for recorded replay (amd64 OK — source-built decoder)
-        run: podman build -t ghcr.io/tempest-concorde/fw-adsb-readsb:test \
-               -f containers/adsb/readsb/Containerfile .
+        # Raise the failure tail as a check annotation: annotations are the
+        # only CI output readable through the REST API in restricted envs.
+        run: |
+          set -o pipefail
+          podman build -t ghcr.io/tempest-concorde/fw-adsb-readsb:test \
+            -f containers/adsb/readsb/Containerfile . >/tmp/build.log 2>&1 \
+          || { echo "::error::$(tail -c 3000 /tmp/build.log)"; exit 1; }
       - name: Integration tests (recorded BEAST replay + streams)
         run: python3 -m unittest discover -s tests/integration -v

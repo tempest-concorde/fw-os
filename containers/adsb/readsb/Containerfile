@@ -33,7 +33,8 @@ RUN set -a && . /tmp/versions.env && set +a \
 # Upstream Makefile produces ./readsb and ./viewadsb in the repo root.
 # Log tail goes to stderr>&2 on failure (CI annotations capture stderr only).
 RUN make -C /src/readsb -j"$(nproc)" RTLSDR=yes >/tmp/make.log 2>&1 \
- || { grep -B2 -A2 -E "error:|fatal|undefined|cannot find|ld:|collect2" /tmp/make.log | tail -40 >&2; exit 1; } \
+ || { grep -B2 -A2 -E "error:|fatal|undefined|cannot find|ld:|collect2" /tmp/make.log > /tmp/errs.log 2>&1; \
+      tail -40 /tmp/errs.log >&2; exit 1; } \
  && install -m 0755 /src/readsb/readsb /usr/local/bin/readsb
 
 # --- runtime -----------------------------------------------------------------
