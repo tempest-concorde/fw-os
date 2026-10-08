@@ -47,12 +47,14 @@ jobs:
           echo "::notice::listing http_code=${CODE}"
           [ "${CODE}" = "200" ] \
             || { echo "::error::listing rc=${CODE}::payload=$(tail -c 1500 /tmp/index.xml 2>/dev/null | base64 -w0)"; exit 1; }
-          fname="$(grep -oE 'flightradar24_[0-9.]+-[0-9]+_arm64\.tgz' /tmp/index.xml             | sort -V | tail -n1)"
+          fname="$(grep -oE 'flightradar24_[0-9.]+-[0-9]+_arm64\.tgz' /tmp/index.xml | sort -V | tail -n1)" || true
+          echo "::notice::fname_tail=${fname:-<empty>} index_head=$(head -c 800 /tmp/index.xml | base64 -w0)"
           [ -n "${fname}" ] \
             || { echo "::error::no flightradar24_*_arm64.tgz in repo listing"; exit 1; }
           version="${fname#flightradar24_}"
           version="${version%_arm64.tgz}"
           echo "Resolved FR24 artifact: ${fname} -> version ${version}"
+          echo "::notice::fname=${fname} version=${version}"
 
           CODE="$(curl -sSL -o /tmp/fr24feed.tgz -w '%{http_code}' "${BASE_URL}/${fname}" || true)"
           echo "::notice::artifact http_code=${CODE} url=${BASE_URL}/${fname}"
