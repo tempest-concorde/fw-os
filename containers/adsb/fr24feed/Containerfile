@@ -33,9 +33,10 @@ RUN set -a && . /tmp/versions.env && set +a \
  && curl -fsSL "${FR24_FEED_URL}" -o /tmp/pkg.deb \
  && echo "${FR24_FEED_SHA256}  /tmp/pkg.deb" > /tmp/pkg.sha \
  && sha256sum -c /tmp/pkg.sha \
- && cd /tmp/deb \
- && ar x /tmp/pkg.deb \
- && data="$(find . -maxdepth 1 -name 'data.tar.*' -print -quit)" \
+ \
+ && mkdir -p /tmp/deb \
+ && ar --output=/tmp/deb x /tmp/pkg.deb \
+ && data="$(find /tmp/deb -maxdepth 1 -name 'data.tar.*' -print -quit)" \
  && case "$data" in \
       *.zst) zstd -dc "$data" > /tmp/payload.tar ;; \
       *.xz)  xz -dc   "$data" > /tmp/payload.tar ;; \
