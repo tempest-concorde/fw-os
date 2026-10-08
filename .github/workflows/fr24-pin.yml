@@ -35,17 +35,13 @@ jobs:
           # SHA256, giving us the official integrity pin directly.
           SUITE=linux-stable
           ARCH=arm64
-          PKG="Packages"
-          CODE="$(curl -sSL -o /tmp/Packages -w '%{http_code}' \
-            "https://repo-feed.flightradar24.com/dists/flightradar24/${SUITE}/binary-${ARCH}/${PKG}" || true)"
-          echo "::notice::pkg_plain http_code=${CODE}"
-          if [ "${CODE}" != "200" ]; then
-            CODE="$(curl -sSL -o /tmp/Packages.gz -w '%{http_code}' \
-              "https://repo-feed.flightradar24.com/dists/flightradar24/${SUITE}/binary-${ARCH}/${PKG}.gz" || true)"
-            echo "::notice::Packages.gz http_code=${CODE}"
-            [ "${CODE}" = "200" ] || { echo "::error::Packages index unreachable rc=${CODE}"; exit 1; }
-            zcat /tmp/Packages.gz > /tmp/Packages
-          fi
+          # The plain /Packages key is a 200-zero-length anomaly on this
+          # S3-hosted repo — fetch Packages.gz directly.
+          CODE="$(curl -sSL -o /tmp/Packages.gz -w '%{http_code}' \
+            "https://repo-feed.flightradar24.com/dists/flightradar24/${SUITE}/binary-${ARCH}/Packages.gz" || true)"
+          echo "::notice::Packages.gz http_code=${CODE}"
+          [ "${CODE}" = "200" ] || { echo "::error::Packages.gz unreachable rc=${CODE}"; exit 1; }
+          zcat /tmp/Packages.gz > /tmp/Packages
 
           pkgs="$(grep '^Package: ' /tmp/Packages | awk '{print $2}' | tr '\n' ' ')"
           echo "::notice::packages in index: ${pkgs}"
