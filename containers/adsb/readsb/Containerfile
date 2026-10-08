@@ -31,9 +31,13 @@ RUN set -a && . /tmp/versions.env && set +a \
  && git -C /src/readsb checkout "${READSB_COMMIT}"
 
 # Upstream Makefile produces ./readsb and ./viewadsb in the repo root.
-RUN make -C /src/readsb -j"$(nproc)" RTLSDR=yes >/tmp/make.log 2>&1 \
- || { tail -60 /tmp/make.log; exit 1; }; \
- install -m 0755 /src/readsb/readsb /usr/local/bin/readsb
+# Log tail is printed unconditionally on failure to stay within the 4096-byte
+# CI annotation cap; command availability is echoed for diagnosis.
+RUN set -x \
+ && command -v make gcc git \
+ && make -C /src/readsb -j"$(nproc)" RTLSDR=yes >/tmp/make.log 2>&1; rc=$?; \
+ tail -n 60 /tmp/make.log; [ "$rc" -eq 0 ] \
+ && install -m 0755 /src/readsb/readsb /usr/local/bin/readsb
 
 # --- runtime -----------------------------------------------------------------
 FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41
