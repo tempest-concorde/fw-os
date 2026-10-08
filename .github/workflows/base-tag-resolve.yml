@@ -1,0 +1,76 @@
+name: Base Tag Resolve
+
+# Dispatch-driven re-pin of the fedora-bootc-pi base in the root Containerfile
+# (fw-gsd specs/004-fedora-version-alignment, W2). Same pattern as
+# fedora-bootc-pi's base-digest-resolve.yml: Dependabot's weekly cadence is
+# too slow for alignment waves and ghcr digest resolution needs a connected
+# runner. Gives the new base a `tag@sha256` pair and opens nothing itself —
+# it pushes a branch; the caller opens the PR.
+#
+#   tag:     fedora-bootc-pi release to target, e.g. 4.1.0 (no leading v)
+#   branch:  new branch to create-or-reset from main and push
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'fedora-bootc-pi release tag to rebase on (e.g. 4.1.0)'
+        required: true
+        type: string
+      branch:
+        description: 'Branch to create-or-reset from main and push'
+        required: true
+        type: string
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: main
+
+      - name: Install skopeo
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq skopeo
+
+      - name: Resolve digest for ghcr.io/tempest-concorde/fedora-bootc-pi
+        id: base
+        run: |
+          set -euo pipefail
+          IMG="ghcr.io/tempest-concorde/fedora-bootc-pi:${{ inputs.tag }}"
+          RAW="$(skopeo inspect "docker://${IMG}" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["Digest"])')"
+          # skopeo's Digest carries the sha256: scheme prefix; the FROM
+          # reference needs @sha256:<hex> without it.
+          DIGEST="${RAW#sha256:}"
+          echo "digest=${DIGEST}" | tee -a "$GITHUB_OUTPUT"
+          echo "Resolved ${IMG} -> ${DIGEST}"
+
+      - name: Update Containerfile base tag+digest
+        env:
+          DIGEST: ${{ steps.base.outputs.digest }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          sed -i "s|^FROM ghcr.io/tempest-concorde/fedora-bootc-pi:[^[:space:]]*@sha256:[0-9a-f]\{64\}|FROM ghcr.io/tempest-concorde/fedora-bootc-pi:${TAG}@sha256:${DIGEST}|" Containerfile
+          grep '^FROM ' Containerfile
+
+      - name: Commit and push branch
+        run: |
+          set -euo pipefail
+          BRANCH="${{ inputs.branch }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "${BRANCH}"
+          # Update the header comment pair so tag and comment stay truthful.
+          sed -i "s|^# fedora-bootc-pi rebuilds the .* tag (new digest).*release .*\.|# Fedora 46 base — aligned with FEDORA-BASELINE.md (fw-gsd 004).|" Containerfile || true
+          git diff --quiet Containerfile && { echo "no change detected — Containerfile already on target"; exit 0; }
+          git add Containerfile
+          git commit -m "chore(deps): rebase fw-os on fedora-bootc-pi ${{ inputs.tag }} (F46)
+
+          fw-gsd specs/004-fedora-version-alignment W2."
+          git push -u origin "${BRANCH}"
