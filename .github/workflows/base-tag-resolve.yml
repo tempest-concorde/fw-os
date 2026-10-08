@@ -41,46 +41,39 @@ jobs:
         run: |
           set -euo pipefail
           IMG="ghcr.io/tempest-concorde/fedora-bootc-pi:${{ inputs.tag }}"
-
-          # curl-only ghcr resolver: token exchange, manifest fetch, digest
-          # from the Docker-Content-Digest header. Failures surface as a
-          # base64 check annotation (plain step output isn't REST-readable).
           export WANT="${{ inputs.tag }}"
 
-          # TEMP DEBUG: phase annotations pinpoint the failing line.
-          set +e
-          TOKEN="$(curl -fsSL -u "${GITHUB_ACTOR}:${GITHUB_TOKEN}" "https://ghcr.io/token?scope=repository:tempest-concorde/fedora-bootc-pi:pull" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])' 2>/tmp/token.err)"
-          echo "::notice::phase token-exchange rc=$? token_len=${#TOKEN} err=$(head -c 300 /tmp/token.err)"
+          # curl-only ghcr resolver. Failures surface as base64 check
+          # annotations (plain step output isn't REST-readable).
           TOKEN="$(curl -fsSL \
             -u "${GITHUB_ACTOR}:${GITHUB_TOKEN}" \
             "https://ghcr.io/token?scope=repository:tempest-concorde/fedora-bootc-pi:pull" \
             | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')" \
             || { echo "::error::ghcr token exchange failed"; exit 1; }
 
-          # Resolve the *actual* tag — releases may carry a leading v or not.
           curl -fsSL \
             -H "Authorization: Bearer ${TOKEN}" \
             "https://ghcr.io/v2/tempest-concorde/fedora-bootc-pi/tags/list" \
             -o /tmp/tags.json \
             || { echo "::error::tags/list failed (auth or network)"; exit 1; }
-          export WANT
-          python3 -c "import json,os,sys; want=os.environ.get('WANT','').lstrip('v'); tags=json.load(open('/tmp/tags.json')).get('tags',[]); print('available:', ','.join(tags), file=sys.stderr); matches=[t for t in tags if t==want or t.lstrip('v')==want]; sys.exit(0 if matches else 63)" \
-            || { echo "::error::tag '${WANT}' not found in tags::payload=$(cat /tmp/tags.json | base64 -w0)"; exit 1; }
-          TAG=$(WANT="${WANT}" python3 -c "import json,os; want=os.environ['WANT'].lstrip('v'); print(next(t for t in json.load(open('/tmp/tags.json'))['tags'] if t==want or t.lstrip('v')==want))")
-          TAG="$(cat /tmp/tagfound)"
 
-          curl -fsSL -D /tmp/hdr -o /tmp/manifest.json \
+          # Release tags may carry a leading v; resolve the real tag name.
+          TAG="$(python3 -c "import json,os; want=os.environ['WANT'].lstrip('v'); matches=[t for t in json.load(open('/tmp/tags.json'))['tags'] if t==want or t.lstrip('v')==want]; print(matches[0] if matches else '')")"
+          [ -n "${TAG}" ] \
+            || { echo "::error::tag '${WANT}' not found in ghcr tags::payload=$(cat /tmp/tags.json | base64 -w0)"; exit 1; }
+
+          CODE="$(curl -sSL -D /tmp/hdr -o /tmp/manifest.json \
             -H "Authorization: Bearer ${TOKEN}" \
-            -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json" \
-            "https://ghcr.io/v2/tempest-concorde/fedora-bootc-pi/manifests/${TAG}" \
-            || { echo "::error::payload=$(tail -c 2000 /tmp/manifest.json 2>/dev/null | base64 -w0)"; exit 1; }
+            -H "Accept: application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json" \
+            -w '%{http_code}' \
+            "https://ghcr.io/v2/tempest-concorde/fedora-bootc-pi/manifests/${TAG}")"
+          [ "${CODE}" = "200" ] \
+            || { echo "::error::manifest GET ${TAG} http=${CODE}::payload=$(tail -c 2000 /tmp/manifest.json 2>/dev/null | base64 -w0)"; exit 1; }
 
           RAW="$(awk -F': ' 'tolower($1)=="docker-content-digest" {print $2}' /tmp/hdr | tr -d '\r')"
           DIGEST="${RAW#sha256:}"
-          if ! printf '%s' "${DIGEST}" | grep -qE '^[0-9a-f]{64}$'; then
-            echo "::error::digest resolution malformed (got '${DIGEST}')::payload=$(tail -c 1500 /tmp/hdr | base64 -w0)"
-            exit 1
-          fi
+          printf '%s' "${DIGEST}" | grep -qE '^[0-9a-f]{64}$' \
+            || { echo "::error::malformed digest '${DIGEST}'::payload=$(tail -c 1500 /tmp/hdr | base64 -w0)"; exit 1; }
 
           echo "digest=${DIGEST}" | tee -a "$GITHUB_OUTPUT"
           echo "Resolved ${IMG} -> ${DIGEST}"
