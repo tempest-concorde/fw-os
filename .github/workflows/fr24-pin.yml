@@ -29,64 +29,68 @@ jobs:
           env_file="containers/adsb/versions.env"
 
           python3 - <<'PYEOF'
-          import gzip, hashlib, json, re, sys, urllib.request
+          import gzip, hashlib, re, sys, traceback, urllib.request
           from datetime import date
 
           HOST = "https://repo-feed.flightradar24.com"
-          preset = {
-              "suite": "linux-stable",
-              "arch": "arm64",
-              "package": "fr24feed",
-          }
+          SUITE = "linux-stable"
+          ARCH = "arm64"
 
-          url = f"{HOST}/dists/flightradar24/{preset['suite']}/binary-{preset['arch']}/Packages.gz"
-          print(f"::notice::fetching {url}")
-          body = urllib.request.urlopen(url, timeout=60).read()
-          index = gzip.decompress(body).decode("utf-8", "replace")
-
-          stanzas = [s for s in index.split("\n\n")
-                     if s.startswith(f"Package: {preset['package']}\n")]
-          if not stanzas:
-              names = re.findall(r"^Package: (\S+)", index, re.M)[:20]
-              print("::error::%s not found in Packages index; got: %s"
-                    % (preset["package"], ", ".join(names)))
+          def fail(msg):
+              print(f"::error::{msg}")
               sys.exit(1)
 
-          fields = {}
-          for line in stanzas[-1].splitlines():
-              k, _, v = line.partition(": ")
-              fields[k] = v
-          for req in ("Version", "Filename", "SHA256"):
-              if req not in fields:
-                  print(f"::error::Packages entry lacks {req}: {fields}")
-                  sys.exit(1)
+          def main():
+              url = f"{HOST}/dists/flightradar24/{SUITE}/binary-{ARCH}/Packages.gz"
+              print(f"::notice::fetching {url}")
+              body = urllib.request.urlopen(url, timeout=60).read()
+              index = gzip.decompress(body).decode("utf-8", "replace")
 
-          url = f"{HOST}/{fields['Filename']}"
-          print(f"::notice::downloading {url}")
-          blob = urllib.request.urlopen(url, timeout=120).read()
-          digest = hashlib.sha256(blob).hexdigest()
-          if digest != fields["SHA256"]:
-              print(f"::error::download sha {digest} != index {fields['SHA256']}")
-              sys.exit(1)
+              stanzas = [st for st in index.split("\n\n")
+                         if st.startswith("Package: fr24feed\n")]
+              if not stanzas:
+                  names = re.findall(r"^Package: (\S+)", index, re.M)[:20]
+                  fail(f"fr24feed not in Packages index; have: {', '.join(names)}")
+              fields = {}
+              for line in stanzas[-1].splitlines():
+                  k, _, v = line.partition(": ")
+                  fields[k] = v
+              for req in ("Version", "Filename", "SHA256"):
+                  if req not in fields:
+                      fail(f"no {req} in stanza: {fields}")
+
+              url = f"{HOST}/{fields['Filename']}"
+              print(f"::notice::downloading {url}")
+              blob = urllib.request.urlopen(url, timeout=180).read()
+              digest = hashlib.sha256(blob).hexdigest()
+              if digest != fields["SHA256"]:
+                  fail(f"sha {digest} != index {fields['SHA256']}")
+              return fields["Version"], url, digest
+
+          try:
+              version, url, digest = main()
+          except SystemExit:
+              raise
+          except Exception:
+              trace = traceback.format_exc()[-1200:]
+              trace = trace.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print("::error::resolve exception: " + trace)
+              raise SystemExit(1)
 
           env_file = "containers/adsb/versions.env"
-          text = open(env_file).read()
-          text = re.sub(r"(?m)^FR24_FEED_VERSION=.*$",
-                        f"FR24_FEED_VERSION={fields['Version']}", text)
-          text = re.sub(r"(?m)^FR24_FEED_SHA256=.*$",
-                        f"FR24_FEED_SHA256={fields['SHA256']}", text)
-          text = re.sub(r"(?m)^FR24_FEED_URL=.*$",
-                        f"FR24_FEED_URL={url}", text)
+          import pathlib
+          text = pathlib.Path(env_file).read_text()
+          text = re.sub(r"(?m)^FR24_FEED_VERSION=.*$", f"FR24_FEED_VERSION={version}", text)
+          text = re.sub(r"(?m)^FR24_FEED_SHA256=.*$", f"FR24_FEED_SHA256={digest}", text)
+          text = re.sub(r"(?m)^FR24_FEED_URL=.*$", f"FR24_FEED_URL={url}", text)
           today = date.today().isoformat()
           if "# recorded_date: " in text:
-              text = re.sub(r"(?m)^# recorded_date: .*$",
-                            f"# recorded_date: {today}", text)
+              text = re.sub(r"(?m)^# recorded_date: .*$", f"# recorded_date: {today}", text)
           else:
-              text = text.replace(
-                  f"FR24_FEED_SHA256={fields['SHA256']}",
-                  f"FR24_FEED_SHA256={fields['SHA256']}\n# recorded_date: {today}")
-          open(env_file, "w").write(text)
-          print(f"::notice::pinned fr24feed {fields['Version']}")
+              text = text.replace(f"FR24_FEED_SHA256={digest}",
+                                  f"FR24_FEED_SHA256={digest}\n# recorded_date: {today}")
+          pathlib.Path(env_file).write_text(text)
+          print(f"::notice::pinned fr24feed {version}")
           PYEOF
 
           git diff -- "${env_file}"
