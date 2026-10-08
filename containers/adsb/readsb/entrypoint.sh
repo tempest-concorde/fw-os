@@ -26,10 +26,12 @@ if [ "${READSB_IFILE:-}" != "" ]; then
     python3 -m http.server 8080 --directory /docroot &
     HTTP_PID=$!
     # shellcheck disable=SC2086
-    # --throttle (VERIFIED "--throttle" exists at READSB_COMMIT: help.h
-    # OptIfileThrottle) replays at capture speed so the JSON write tick fires
-    # while the fixture streams in.
-    readsb --ifile "$READSB_IFILE" --throttle $READSB_ARGS &
+    # --device-type ifile is REQUIRED before ifile-specific options (readsb
+    # hard-errors otherwise: "SDR / device type specific options must be
+    # specified AFTER the --device-type xyz parameter"). --throttle replays
+    # at capture speed so the JSON write tick fires (OptIfileThrottle verified
+    # in help.h at READSB_COMMIT).
+    readsb --device-type ifile --ifile "$READSB_IFILE" --throttle $READSB_ARGS &
     READSB_PID=$!
     trap 'kill "$READSB_PID" "$HTTP_PID" 2>/dev/null || true' EXIT TERM INT
     wait "$READSB_PID" || true
