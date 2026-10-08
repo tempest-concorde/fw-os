@@ -3,7 +3,7 @@
 
 # Base pinned to SemVer tag + SHA256 digest. Dependabot opens a PR when
 # fedora-bootc-pi rebuilds the 3.0.2 tag (new digest) or releases 3.0.3+.
-FROM ghcr.io/tempest-concorde/fedora-bootc-pi:3.0.2@sha256:038889b0a1a156a1ba20ccda1e69398a806f59c8e463b394a460dbfd613fdabd
+FROM ghcr.io/tempest-concorde/fedora-bootc-pi:4.1.0@sha256:
 
 # Metadata
 LABEL org.opencontainers.image.title="Flight Wall OS"
