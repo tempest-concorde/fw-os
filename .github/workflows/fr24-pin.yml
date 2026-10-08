@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   pin-fr24feed:
@@ -104,15 +105,26 @@ jobs:
 
           git diff -- "${env_file}"
 
-      - name: Commit and push the pin
+      - name: Commit, push branch, and open/update the pin PR
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add containers/adsb/versions.env
           if git diff --cached --quiet; then
-            echo "versions.env already pinned at this version/sha256 — nothing to commit"
+            echo "::notice::versions.env already pinned — nothing to commit"
             exit 0
           fi
-          git commit -m "chore(adsb): pin fr24feed version+sha256"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          # github-actions[bot] cannot push to protected main: open a PR.
+          BRANCH="chore/fr24-pin-$(date -u +%Y%m%d)"
+          git checkout -B "${BRANCH}"
+          VERSION=$(grep '^FR24_FEED_VERSION=' containers/adsb/versions.env | cut -d= -f2)
+          git commit -m "chore(adsb): pin fr24feed ${VERSION} (version+sha256, FW-GSD 003 T043)"
+          git push -u origin "${BRANCH}"
+          gh pr create \
+            --repo tempest-concorde/fw-os \
+            --title "chore(adsb): pin fr24feed ${VERSION} (T043)" \
+            --body "Automated fr24-pin resolution: packages resolved from the FR24 APT index (raspberrypi-stable/binary-arm64), download verified against the upstream SHA256, versions.env updated. Fills 003 T043 / unblocks the release-time fr24feed build." \
+            --base main --head "${BRANCH}"
