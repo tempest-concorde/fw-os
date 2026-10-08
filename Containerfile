@@ -1,8 +1,9 @@
 # Flight Wall OS - Application Layer
 # Layer 3: Application-specific configuration on top of fedora-bootc-pi
 
-# Base pinned to SemVer tag + SHA256 digest. Dependabot opens a PR when
-# fedora-bootc-pi rebuilds the 3.0.2 tag (new digest) or releases 3.0.3+.
+# Base pinned to SemVer tag + SHA256 digest, aligned with fw-gsd
+# FEDORA-BASELINE.md (Fedora 46). Dependabot opens a PR when a new
+# fedora-bootc-pi release appears; digest-sync keeps the tag's digest fresh.
 FROM ghcr.io/tempest-concorde/fedora-bootc-pi:4.1.1@sha256:1aa2b2c4d1766c2a48e5b5a4035602251a73163ff8d5d1badb0c216140dc3f52
 
 # Metadata
