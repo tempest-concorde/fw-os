@@ -49,6 +49,7 @@ jobs:
 
           # TEMP DEBUG: phase annotations pinpoint the failing line.
           set +e
+          set +u  # debug tolerant mode
           TOKEN="$(curl -fsSL -u "${GITHUB_ACTOR}:${GITHUB_TOKEN}" "https://ghcr.io/token?scope=repository:tempest-concorde/fedora-bootc-pi:pull" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])' 2>/tmp/token.err)"
           echo "::notice::phase token-exchange rc=$? token_len=${#TOKEN} err=$(head -c 300 /tmp/token.err)"
           TOKEN="$(curl -fsSL \
@@ -69,11 +70,14 @@ jobs:
           TAG=$(WANT="${WANT}" python3 -c "import json,os; want=os.environ['WANT'].lstrip('v'); print(next(t for t in json.load(open('/tmp/tags.json'))['tags'] if t==want or t.lstrip('v')==want))")
           TAG="$(cat /tmp/tagfound)"
 
-          curl -fsSL -D /tmp/hdr -o /tmp/manifest.json \
+          CODE="$(curl -sSL -D /tmp/hdr -o /tmp/manifest.json \
             -H "Authorization: Bearer ${TOKEN}" \
-            -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json" \
-            "https://ghcr.io/v2/tempest-concorde/fedora-bootc-pi/manifests/${TAG}" \
-            || { echo "::error::payload=$(tail -c 2000 /tmp/manifest.json 2>/dev/null | base64 -w0)"; exit 1; }
+            -H "Accept: application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json" \
+            -w '%{http_code}' \
+            "https://ghcr.io/v2/tempest-concorde/fedora-bootc-pi/manifests/${TAG}")"
+          echo "::notice::manifest http_code=${CODE} plain_tag=${TAG}"
+          [ "${CODE}" = "200" ] \
+            || { echo "::error::manifest GET rc=${CODE}::payload=$(tail -c 2000 /tmp/manifest.json 2>/dev/null | base64 -w0)"; exit 1; }
 
           RAW="$(awk -F': ' 'tolower($1)=="docker-content-digest" {print $2}' /tmp/hdr | tr -d '\r')"
           DIGEST="${RAW#sha256:}"
