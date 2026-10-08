@@ -23,48 +23,69 @@ jobs:
         with:
           ref: ${{ github.ref }}
 
-      - name: Download tarball, compute sha256, update versions.env
+      - name: Resolve FR24 arm64 package from the APT index, update versions.env
         run: |
           set -euo pipefail
           env_file="containers/adsb/versions.env"
 
-          # versions.env is a plain KEY=value env file — source it directly.
-          set -a
-          # shellcheck disable=SC1091
-          source "${env_file}"
-          set +a
+          # FR24's feed repo (repo-feed.flightradar24.com, an S3 bucket) is an
+          # APT repository: dists/flightradar24/<suite>/binary-<arch>/Packages.
+          # linux_fr24feed_packages/*.tgz was RETIRED upstream (2026-10-08 —
+          # keys no longer exist). The Packages index carries Filename +
+          # SHA256, giving us the official integrity pin directly.
+          SUITE=linux-stable
+          ARCH=arm64
+          PKG="Packages"
+          CODE="$(curl -sSL -o /tmp/Packages -w '%{http_code}' \
+            "https://repo-feed.flightradar24.com/dists/flightradar24/${SUITE}/binary-${ARCH}/${PKG}" || true)"
+          if [ "${CODE}" != "200" ]; then
+            CODE="$(curl -sSL -o /tmp/Packages.gz -w '%{http_code}' \
+              "https://repo-feed.flightradar24.com/dists/flightradar24/${SUITE}/binary-${ARCH}/${PKG}.gz" || true)"
+            echo "::notice::Packages.gz http_code=${CODE}"
+            [ "${CODE}" = "200" ] || { echo "::error::Packages index unreachable rc=${CODE}"; exit 1; }
+            zcat /tmp/Packages.gz > /tmp/Packages
+          fi
 
-          # The pinned URL goes stale when FR24 rotates packages (2026-10-08:
-          # dispatch hit exit 22 — versions.env target no longer exists).
-          # Resolve the newest flightradar24_*_arm64.tgz from the repo
-          # directory listing instead of trusting a fixed URL.
-          BASE_URL="https://repo-feed.flightradar24.com/linux_fr24feed_packages"
-          # repo-feed is a public S3 bucket: no directory index exists (GET on
-          # the trailing-slash key returns NoSuchKey XML/404). Enumerate object
-          # keys with the S3 ListObjectsV2 API instead.
-          CODE="$(curl -sSL -o /tmp/index.xml -w '%{http_code}' \
-            'https://repo-feed.flightradar24.com/?list-type=2' || true)"
-          echo "::notice::listing http_code=${CODE} keys_head=$(head -c 1200 /tmp/index.xml | base64 -w0)"
-          [ "${CODE}" = "200" ] \
-            || { echo "::error::listing rc=${CODE}::payload=$(tail -c 1500 /tmp/index.xml 2>/dev/null | base64 -w0)"; exit 1; }
-          fname="$(grep -oE 'flightradar24_[0-9.]+-[0-9]+_arm64\.tgz' /tmp/index.xml | sort -V | tail -n1)" || true
-          echo "::notice::fname_tail=${fname:-<empty>} index_head=$(head -c 800 /tmp/index.xml | base64 -w0)"
-          [ -n "${fname}" ] \
-            || { echo "::error::no flightradar24_*_arm64.tgz in repo listing"; exit 1; }
-          version="${fname#flightradar24_}"
-          version="${version%_arm64.tgz}"
-          echo "Resolved FR24 artifact: ${fname} -> version ${version}"
-          echo "::notice::fname=${fname} version=${version}"
+          metadata="$(python3 - <<'PYEOF'
+          import re, sys
+          text = open('/tmp/Packages').read()
+          stanzas = [st for st in text.split('\n\n') if st.startswith('Package: fr24feed')]
+          if not stanzas:
+              names = re.findall(r'^Package: (\S+)', text, re.M)
+              print('ERROR_NO_FR24FEED pkg_count=%d first=%s' % (len(names), ' '.join(names[:15])))
+              sys.exit(1)
+          fields = {}
+          for line in stanzas[-1].splitlines():
+              k, _, v = line.partition(': ')
+              fields[k] = v
+          print('OK\n%s\n%s\n%s' % (fields['Version'], fields['Filename'], fields['SHA256']))
+          PYEOF
+          )"
+          case "${metadata}" in OK*)
+            version="$(printf '%s' "${metadata}" | sed -n '2p')"
+            filename="$(printf '%s' "${metadata}" | sed -n '3p')"
+            sha256="$(printf '%s' "${metadata}" | sed -n '4p')"
+            ;;
+          *)
+            echo "::error::fr24feed not in Packages index: ${metadata}"; exit 1;;
+          esac
+          url="https://repo-feed.flightradar24.com/${filename}"
+          printf '%s' "${sha256}" | grep -qE '^[0-9a-f]{64}$' \
+            || { echo "::error::no usable upstream sha256 in Packages entry"; exit 1; }
 
-          CODE="$(curl -sSL -o /tmp/fr24feed.tgz -w '%{http_code}' "${BASE_URL}/${fname}" || true)"
-          echo "::notice::artifact http_code=${CODE} url=${BASE_URL}/${fname}"
+          # Verify the download actually matches the index checksum.
+          CODE="$(curl -sSL -o /tmp/fr24feed.deb -w '%{http_code}' "${url}" || true)"
           [ "${CODE}" = "200" ] \
-            || { echo "::error::artifact rc=${CODE} url=${BASE_URL}/${fname}"; exit 1; }
-          sha256="$(sha256sum /tmp/fr24feed.tgz | awk '{print $1}')"
+            || { echo "::error::artifact rc=${CODE} url=${url}"; exit 1; }
+          actual="$(sha256sum /tmp/fr24feed.deb | awk '{print $1}')"
+          [ "${actual}" = "${sha256}" ] \
+            || { echo "::error::downloaded sha ${actual} != index sha ${sha256}"; exit 1; }
           recorded="$(date -u +%F)"
+          echo "Resolved fr24feed ${version} (${url})"
 
           sed -i "s|^FR24_FEED_VERSION=.*|FR24_FEED_VERSION=${version}|" "${env_file}"
           sed -i "s|^FR24_FEED_SHA256=.*|FR24_FEED_SHA256=${sha256}|" "${env_file}"
+          sed -i "s|^FR24_FEED_URL=.*|FR24_FEED_URL=${url}|" "${env_file}"
           if grep -q '^# recorded_date: ' "${env_file}"; then
             sed -i "s|^# recorded_date: .*|# recorded_date: ${recorded}|" "${env_file}"
           else
