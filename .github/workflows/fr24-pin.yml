@@ -118,7 +118,7 @@ jobs:
             exit 0
           fi
           # github-actions[bot] cannot push to protected main: open a PR.
-          BRANCH="chore/fr24-pin-$(date -u +%Y%m%d)"
+          BRANCH="chore/fr24-pin-$(date -u +%Y%m%d-%H%M%S)"
           git checkout -B "${BRANCH}"
           VERSION=$(grep '^FR24_FEED_VERSION=' containers/adsb/versions.env | cut -d= -f2)
           git commit -m "chore(adsb): pin fr24feed ${VERSION} (version+sha256, FW-GSD 003 T043)" \
