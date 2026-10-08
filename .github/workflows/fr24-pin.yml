@@ -51,6 +51,8 @@ jobs:
               print(f"::notice::fetching {url}")
               body = get(url, 60)
               index = gzip.decompress(body).decode("utf-8", "replace")
+              import base64 as _b64
+              print("::notice::index_head=" + _b64.b64encode(index[:400].encode()).decode())
 
               stanzas = [st for st in index.split("\n\n")
                          if st.startswith("Package: fr24feed\n")]
