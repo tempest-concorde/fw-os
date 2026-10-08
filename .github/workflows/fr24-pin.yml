@@ -34,12 +34,21 @@ jobs:
           source "${env_file}"
           set +a
 
-          fname="$(basename "${FR24_FEED_URL}")"       # flightradar24_<VERSION>_arm64.tgz
+          # The pinned URL goes stale when FR24 rotates packages (2026-10-08:
+          # dispatch hit exit 22 — versions.env target no longer exists).
+          # Resolve the newest flightradar24_*_arm64.tgz from the repo
+          # directory listing instead of trusting a fixed URL.
+          BASE_URL="https://repo-feed.flightradar24.com/linux_fr24feed_packages"
+          curl -fsSL "${BASE_URL}/" -o /tmp/index.html \
+            || { echo "::error::cannot list ${BASE_URL}/"; exit 1; }
+          fname="$(grep -oE 'flightradar24_[0-9.]+-[0-9]+_arm64\.tgz' /tmp/index.html             | sort -V | tail -n1)"
+          [ -n "${fname}" ] \
+            || { echo "::error::no flightradar24_*_arm64.tgz in repo listing"; exit 1; }
           version="${fname#flightradar24_}"
           version="${version%_arm64.tgz}"
           echo "Resolved FR24 artifact: ${fname} -> version ${version}"
 
-          curl -fsSL "${FR24_FEED_URL}" -o /tmp/fr24feed.tgz
+          curl -fsSL "${BASE_URL}/${fname}" -o /tmp/fr24feed.tgz
           sha256="$(sha256sum /tmp/fr24feed.tgz | awk '{print $1}')"
           recorded="$(date -u +%F)"
 
