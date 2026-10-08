@@ -100,7 +100,6 @@ jobs:
               if subprocess.run(["git", "diff", "--quiet"], check=False).returncode == 0:
                   print("::notice::digests already current, nothing to commit")
                   sys.exit(0)
-              subprocess.run(["git", "add"] + [p for p in subprocess.check_output(["git", "status", "--porcelain"], text=True).splitlines()], check=True)
               subprocess.run(["git", "add", "-A"], check=True)
               subprocess.run(["git", "commit", "-m", "chore(adsb): fill released digests into sentinels + quadlets (T049/W4b)"], check=True)
               subprocess.run(["git", "push", "-u", "origin", BRANCH], check=True)
