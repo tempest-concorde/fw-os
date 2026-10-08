@@ -19,7 +19,7 @@ FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac
 
 COPY containers/adsb/versions.env /tmp/versions.env
 
-RUN dnf install -y gcc make git rtl-sdr-devel ncurses-devel && dnf clean all
+RUN dnf install -q -y gcc make git rtl-sdr-devel ncurses-devel && dnf clean all
 
 RUN set -a && . /tmp/versions.env && set +a \
  && git clone "${READSB_REPO}" /src/readsb \
@@ -34,7 +34,7 @@ FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac
 
 # rtl-sdr: live device access; python3: http.server for the /data JSON docroot
 # (no readsb built-in HTTP assumed); libusbx/ca-certificates kept explicit.
-RUN dnf install -y rtl-sdr python3 libusbx ca-certificates \
+RUN dnf install -q -y rtl-sdr python3 libusbx ca-certificates \
  && dnf clean all
 
 COPY --from=builder /usr/local/bin/readsb /usr/local/bin/readsb
