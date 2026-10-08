@@ -60,7 +60,7 @@ jobs:
             || { echo "::error::tags/list failed (auth or network)"; exit 1; }
           export WANT
           python3 -c "import json,os,sys; want=os.environ.get('WANT','').lstrip('v'); tags=json.load(open('/tmp/tags.json')).get('tags',[]); print('available:', ','.join(tags), file=sys.stderr); matches=[t for t in tags if t==want or t.lstrip('v')==want]; sys.exit(0 if matches else 63)" \
-            || { echo "::error::tag '${WANT}' not found (see available list above)"; exit 1; }
+            || { echo "::error::tag '${WANT}' not found in tags::payload=$(cat /tmp/tags.json | base64 -w0)"; exit 1; }
           TAG=$(WANT="${WANT}" python3 -c "import json,os; want=os.environ['WANT'].lstrip('v'); print(next(t for t in json.load(open('/tmp/tags.json'))['tags'] if t==want or t.lstrip('v')==want))")
           TAG="$(cat /tmp/tagfound)"
 
