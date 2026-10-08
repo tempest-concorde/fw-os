@@ -145,6 +145,19 @@ jobs:
           podman build -t ghcr.io/tempest-concorde/fw-adsb-readsb:test \
             -f containers/adsb/readsb/Containerfile . >/tmp/build.log 2>&1 \
           || { echo "::error::payload=$(tail -c 3000 /tmp/build.log | base64 -w0)"; exit 1; }
+      - name: Debug replay smoke (temporary)
+        run: |
+          podman run -d --name rc-diag --replace \
+            -e READSB_IFILE=/fixture/sample.beast \
+            -v "$PWD/tests/fixtures:/fixture:ro,Z" \
+            -p 18080:8080 \
+            ghcr.io/tempest-concorde/fw-adsb-readsb:test
+          sleep 15
+          podman logs rc-diag >/tmp/rc.log 2>&1 || true
+          curl -sS -m 5 http://localhost:18080/data/aircraft.json >/tmp/ac.json 2>&1 || true
+          echo "::error::payload=$(cat /tmp/rc.log /tmp/ac.json | tail -c 3000 | base64 -w0)"
+          podman stop rc-diag 2>/dev/null || true
+
       - name: Integration tests (recorded BEAST replay + streams)
         run: |
           python3 -m unittest discover -s tests/integration -v >/tmp/it.log 2>&1 \
