@@ -74,7 +74,14 @@ def assert_aircraft_entry(case, ac):
     # Unknown/extra fields are fine by construction (no exhaustive key check).
 
 
+# Live-fetch cases require a running readsb HTTP endpoint. In the offline CI
+# tier (recorded-replay) no server is up yet — FW_ADSB_READSB_URL stays unset
+# and these cases skip; they run in the integration/UAT tiers instead.
+LIVE_URL_SET = bool(os.environ.get("FW_ADSB_READSB_URL"))
+
+
 class TestLocalDataPullContract(unittest.TestCase):
+    @unittest.skipUnless(LIVE_URL_SET, "no live readsb endpoint configured (offline CI tier)")
     def test_aircraft_json_contract(self):
         status, body = fetch_aircraft()
         self.assertEqual(200, status, "GET /data/aircraft.json returns 200")

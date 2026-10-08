@@ -7,9 +7,11 @@
 # specs/004-fedora-version-alignment). src/go.mod deliberately still declares
 # `go 1.25` — no directive change needed because a 1.27 toolchain correctly
 # builds a `go 1.25` module (builder is newer than the language directive).
+# Build context is the REPOSITORY ROOT (see readsb/Containerfile for the
+# rationale), so source paths below are repo-relative.
 FROM registry.access.redhat.com/hi/go:1.27@sha256:cf54e1f8345bd38401ca8b651b4b0db65c784c23d4ab2b03f97d08a1d8bbbde4 AS builder
 WORKDIR /src
-COPY src/ ./
+COPY containers/adsb/status/src/ ./
 RUN GOFLAGS=-trimpath CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/fw-adsb-status ./cmd/fw-adsb-status
 
 FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41

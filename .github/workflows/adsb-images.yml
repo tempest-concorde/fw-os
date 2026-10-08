@@ -22,6 +22,9 @@ jobs:
     uses: tempest-concorde/fw-cicd/.github/workflows/go-quality.yml@main
     with:
       working_directory: containers/adsb/status/src
+      # go.mod declares `go 1.25`; keep golangci-lint on a release built with
+      # Go 1.25 or newer (v2.2 predates Go 1.25 support).
+      golangci_lint_version: 'v2.5'
 
   build-readsb:
     name: Build readsb image (no push)
@@ -34,8 +37,26 @@ jobs:
       push: false
     secrets: inherit
 
+  # Read pinned upstream versions once so downstream jobs can gate on them
+  # (fr24feed is skipped while FR24_FEED_SHA256=PENDING — the Containerfile
+  # hard-fails on PENDING by design until the fr24-pin workflow lands the
+  # vendor checksum on a connected runner, fw-gsd 003 T043 / 004 W4c).
+  versions:
+    name: Read adsb pinned versions
+    runs-on: ubuntu-latest
+    outputs:
+      fr24_feed_sha256: ${{ steps.read.outputs.fr24_feed_sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - id: read
+        run: |
+          set -a; . containers/adsb/versions.env; set +a
+          echo "fr24_feed_sha256=${FR24_FEED_SHA256}" >> "$GITHUB_OUTPUT"
+
   build-fr24feed:
     name: Build fr24feed image (no push)
+    needs: versions
+    if: needs.versions.outputs.fr24_feed_sha256 != 'PENDING'
     uses: tempest-concorde/fw-cicd/.github/workflows/build-container.yml@main
     with:
       registry: ghcr.io
