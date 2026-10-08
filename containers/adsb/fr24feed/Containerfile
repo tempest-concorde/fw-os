@@ -32,20 +32,20 @@ RUN set -a && . /tmp/versions.env && set +a \
  && mkdir -p /tmp/deb /out/usr/local/bin \
  && curl -fsSL "${FR24_FEED_URL}" -o /tmp/pkg.deb \
  && echo "${FR24_FEED_SHA256}  /tmp/pkg.deb" > /tmp/pkg.sha \
- && sha256sum -c /tmp/pkg.sha \
- \
- && mkdir -p /tmp/deb \
- && ar --output=/tmp/deb x /tmp/pkg.deb \
- && data="$(find /tmp/deb -maxdepth 1 -name 'data.tar.*' -print -quit)" \
- && case "$data" in \
-      *.zst) zstd -dc "$data" > /tmp/payload.tar ;; \
-      *.xz)  xz -dc   "$data" > /tmp/payload.tar ;; \
-      *.gz)  gzip -dc "$data" > /tmp/payload.tar ;; \
-      *) echo "unknown .deb payload format: $data" >&2; exit 1 ;; \
-    esac \
- && tar -xf /tmp/payload.tar -C /tmp/deb \
- && install -m 0755 /tmp/deb/usr/bin/fr24feed /out/usr/local/bin/fr24feed \
- && rm -rf /tmp/pkg.deb /tmp/pkg.sha /tmp/payload.tar /tmp/deb /tmp/versions.env
+ && ( sha256sum -c /tmp/pkg.sha \
+   && ar --output=/tmp/deb x /tmp/pkg.deb \
+   && data="$(find /tmp/deb -maxdepth 1 -name 'data.tar.*' -print -quit)" \
+   && case "$data" in \
+        *.zst) zstd -dc "$data" > /tmp/payload.tar ;; \
+        *.xz)  xz -dc   "$data" > /tmp/payload.tar ;; \
+        *.gz)  gzip -dc "$data" > /tmp/payload.tar ;; \
+        *) echo "unknown .deb payload format: $data" >&2; exit 1 ;; \
+      esac \
+   && tar -xf /tmp/payload.tar -C /tmp/deb \
+   && install -m 0755 /tmp/deb/usr/bin/fr24feed /out/usr/local/bin/fr24feed \
+   && rm -rf /tmp/pkg.deb /tmp/pkg.sha /tmp/payload.tar /tmp/deb /tmp/versions.env \
+   ) > /tmp/fr24build.log 2>&1 \
+ || { tail -40 /tmp/fr24build.log >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
 # mlat-client (T042): enables opt-in FR24 multilateration (spec FR-012 — only
