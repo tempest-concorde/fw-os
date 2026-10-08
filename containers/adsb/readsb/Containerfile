@@ -47,7 +47,9 @@ RUN dnf install -q -y rtl-sdr python3 libusbx zlib libzstd ca-certificates >/tmp
 
 COPY --from=builder /usr/local/bin/readsb /usr/local/bin/readsb
 COPY containers/adsb/readsb/entrypoint.sh /usr/local/bin/fw-adsb-readsb-entrypoint.sh
-RUN chmod 0755 /usr/local/bin/fw-adsb-readsb-entrypoint.sh
+COPY containers/adsb/readsb/replay-feeder.py /usr/local/bin/fw-adsb-replay-feeder.py
+RUN chmod 0755 /usr/local/bin/fw-adsb-readsb-entrypoint.sh \
+ && chmod 0755 /usr/local/bin/fw-adsb-replay-feeder.py
 
 # Docroot served by python3 http.server; /docroot/data -> /readsb so readsb's
 # JSON output appears as /data/aircraft.json (tar1090 convention).

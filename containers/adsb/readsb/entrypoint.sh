@@ -23,22 +23,20 @@ rm -f "$MARKER"
 # Offline replay path used by CI/tests: READSB_IFILE set => no realtime source.
 # Deliberately does NOT write the marker: a replay container is not a receiver.
 if [ "${READSB_IFILE:-}" != "" ]; then
+    # Offline recorded-replay (CI tier). readsb --ifile demodulates raw IQ
+    # samples only — a Beast-format fixture is replayed via readsb's TCP
+    # beast INPUT port instead (--device-type none + --net-bi-port; both
+    # verified in help.h/sdr.c at READSB_COMMIT). replay-feeder.py paces the
+    # frames at 1/s so the --write-json-every 1 tick fires repeatedly.
     python3 -m http.server 8080 --directory /docroot &
     HTTP_PID=$!
     # shellcheck disable=SC2086
-    # --device-type ifile is REQUIRED before ifile-specific options (readsb
-    # hard-errors otherwise: "SDR / device type specific options must be
-    # specified AFTER the --device-type xyz parameter"). --throttle replays
-    # at capture speed so the JSON write tick fires (OptIfileThrottle verified
-    # in help.h at READSB_COMMIT).
-    readsb --device-type ifile --ifile "$READSB_IFILE" --throttle $READSB_ARGS &
+    readsb --device-type none $READSB_ARGS --net-bi-port 30004 &
     READSB_PID=$!
-    trap 'kill "$READSB_PID" "$HTTP_PID" 2>/dev/null || true' EXIT TERM INT
-    wait "$READSB_PID" || true
-    # The recorded fixture is short: when replay exhausts it, readsb exits —
-    # keep serving the last-written JSON until the container is stopped so
-    # the recorded-replay test tier can validate it.
-    wait "$HTTP_PID"
+    python3 /usr/local/bin/fw-adsb-replay-feeder.py "$READSB_IFILE" 127.0.0.1 30004 &
+    FEEDER_PID=$!
+    trap 'kill "$READSB_PID" "$HTTP_PID" "$FEEDER_PID" 2>/dev/null || true' EXIT TERM INT
+    wait
     exit 0
 fi
 
