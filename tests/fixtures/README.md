@@ -2,8 +2,11 @@
 
 `sample.beast` — 124 bytes, 6 Beast frames wrapping fully CRC-valid Mode-S
 messages, generated deterministically by `generate_sample_beast.py` in this
-directory. Replaying it into `readsb --onlyaddr` (offline) yields an
-`aircraft.json` containing one aircraft:
+directory. Frame MLAT timestamps are spaced 1 s apart (12 MHz ticks) so that
+an offline `readsb --ifile ... --throttle` replay spans ~5 s of wall time —
+long enough for the 1 s JSON write tick to fire. Replaying it into
+`readsb --onlyaddr` (offline) yields an `aircraft.json` containing one
+aircraft:
 
 - `hex`: `abc123`
 - `flight`: `TEST01`

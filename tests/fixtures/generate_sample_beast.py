@@ -95,9 +95,15 @@ def main() -> int:
         return 1
     msgs += [("2", df11)] * 2
 
+    # MLAT clock ticks at 12 MHz: spacing frames 12e6 ticks apart spreads the
+    # capture over ~5 seconds of original-time, so a `--throttle`d offline
+    # replay runs long enough for readsb's JSON write tick
+    # (--write-json-every 1) to fire repeatedly. Without this, the whole file
+    # decodes in microseconds and readsb exits before any aircraft.json exists
+    # (discovered in CI, fw-gsd 003 T008/T044).
     payload = bytearray()
     for i, (t, m) in enumerate(msgs):
-        payload += beast_frame(t.encode(), m, mlat=123456789 + i * 1000)
+        payload += beast_frame(t.encode(), m, mlat=60_000_000 + i * 12_000_000)
 
     out = Path(__file__).resolve().parent / "sample.beast"
     out.write_bytes(bytes(payload))
