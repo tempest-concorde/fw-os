@@ -38,6 +38,7 @@ jobs:
           PKG="Packages"
           CODE="$(curl -sSL -o /tmp/Packages -w '%{http_code}' \
             "https://repo-feed.flightradar24.com/dists/flightradar24/${SUITE}/binary-${ARCH}/${PKG}" || true)"
+          echo "::notice::pkg_plain http_code=${CODE}"
           if [ "${CODE}" != "200" ]; then
             CODE="$(curl -sSL -o /tmp/Packages.gz -w '%{http_code}' \
               "https://repo-feed.flightradar24.com/dists/flightradar24/${SUITE}/binary-${ARCH}/${PKG}.gz" || true)"
