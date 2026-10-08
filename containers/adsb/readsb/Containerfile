@@ -23,7 +23,7 @@ FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac
 
 COPY containers/adsb/versions.env /tmp/versions.env
 
-RUN dnf install -q -y gcc make git rtl-sdr-devel ncurses-devel >/tmp/dnf.log 2>&1 \
+RUN dnf install -q -y gcc make git zlib-devel zstd-devel rtl-sdr-devel ncurses-devel >/tmp/dnf.log 2>&1 \
  || { tail -60 /tmp/dnf.log; exit 1; }; dnf clean all
 
 RUN set -a && . /tmp/versions.env && set +a \
@@ -31,13 +31,9 @@ RUN set -a && . /tmp/versions.env && set +a \
  && git -C /src/readsb checkout "${READSB_COMMIT}"
 
 # Upstream Makefile produces ./readsb and ./viewadsb in the repo root.
-# Log tail is printed unconditionally on failure to stay within the 4096-byte
-# CI annotation cap; command availability is echoed for diagnosis.
-# Diagnostics go to stderr>&2: GHA check annotations capture stderr only.
-RUN set -x \
- && make -C /src/readsb -j"$(nproc)" RTLSDR=yes >/tmp/make.log 2>&1; rc=$?; \
- tail -c 3000 /tmp/make.log >&2; \
- [ "$rc" -eq 0 ] \
+# Log tail goes to stderr>&2 on failure (CI annotations capture stderr only).
+RUN make -C /src/readsb -j"$(nproc)" RTLSDR=yes >/tmp/make.log 2>&1 \
+ || { tail -60 /tmp/make.log >&2; exit 1; } \
  && install -m 0755 /src/readsb/readsb /usr/local/bin/readsb
 
 # --- runtime -----------------------------------------------------------------
@@ -45,7 +41,7 @@ FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac
 
 # rtl-sdr: live device access; python3: http.server for the /data JSON docroot
 # (no readsb built-in HTTP assumed); libusbx/ca-certificates kept explicit.
-RUN dnf install -q -y rtl-sdr python3 libusbx ca-certificates >/tmp/dnf.log 2>&1 \
+RUN dnf install -q -y rtl-sdr python3 libusbx zlib zstd ca-certificates >/tmp/dnf.log 2>&1 \
  || { tail -60 /tmp/dnf.log; exit 1; }; dnf clean all
 
 COPY --from=builder /usr/local/bin/readsb /usr/local/bin/readsb
