@@ -39,8 +39,10 @@ jobs:
           # Resolve the newest flightradar24_*_arm64.tgz from the repo
           # directory listing instead of trusting a fixed URL.
           BASE_URL="https://repo-feed.flightradar24.com/linux_fr24feed_packages"
-          curl -fsSL "${BASE_URL}/" -o /tmp/index.html \
-            || { echo "::error::cannot list ${BASE_URL}/"; exit 1; }
+          CODE="$(curl -sSL -o /tmp/index.html -w '%{http_code}' "${BASE_URL}/" || true)"
+          echo "::notice::listing http_code=${CODE}"
+          [ "${CODE}" = "200" ] \
+            || { echo "::error::listing rc=${CODE}::payload=$(tail -c 1500 /tmp/types 2>/dev/null; tail -c 1500 /tmp/index.html 2>/dev/null | base64 -w0)"; exit 1; }
           fname="$(grep -oE 'flightradar24_[0-9.]+-[0-9]+_arm64\.tgz' /tmp/index.html             | sort -V | tail -n1)"
           [ -n "${fname}" ] \
             || { echo "::error::no flightradar24_*_arm64.tgz in repo listing"; exit 1; }
@@ -48,7 +50,10 @@ jobs:
           version="${version%_arm64.tgz}"
           echo "Resolved FR24 artifact: ${fname} -> version ${version}"
 
-          curl -fsSL "${BASE_URL}/${fname}" -o /tmp/fr24feed.tgz
+          CODE="$(curl -sSL -o /tmp/fr24feed.tgz -w '%{http_code}' "${BASE_URL}/${fname}" || true)"
+          echo "::notice::artifact http_code=${CODE} url=${BASE_URL}/${fname}"
+          [ "${CODE}" = "200" ] \
+            || { echo "::error::artifact rc=${CODE} url=${BASE_URL}/${fname}"; exit 1; }
           sha256="$(sha256sum /tmp/fr24feed.tgz | awk '{print $1}')"
           recorded="$(date -u +%F)"
 
