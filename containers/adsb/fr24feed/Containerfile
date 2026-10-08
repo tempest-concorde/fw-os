@@ -58,11 +58,15 @@ FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac
 
 COPY containers/adsb/versions.env /tmp/versions.env
 RUN dnf install -q -y git python3 python3-setuptools ca-certificates \
- && dnf clean all
+  > /tmp/dnf-mlat.log 2>&1 \
+ || { grep -iE "error|fail|conflict|cannot" /tmp/dnf-mlat.log | tail -30 >&2; exit 1; }; \
+ dnf clean all
 RUN set -a && . /tmp/versions.env && set +a \
- && git clone --depth 1 --branch "${MLAT_CLIENT_REF}" "${MLAT_CLIENT_REPO}" /src/mlat
+ && git clone --depth 1 --branch "${MLAT_CLIENT_REF}" "${MLAT_CLIENT_REPO}" /src/mlat > /tmp/git-mlat.log 2>&1 \
+ || { tail -15 /tmp/git-mlat.log >&2; exit 1; }
 WORKDIR /src/mlat
-RUN python3 setup.py install --prefix=/usr/local --root=/tmp/mlat-root
+RUN set -e && python3 setup.py install --prefix=/usr/local --root=/tmp/mlat-root > /tmp/setup-mlat.log 2>&1 \
+ || { grep -iE "error|exception|traceback" /tmp/setup-mlat.log | tail -30 >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
 # Final runtime stage: fr24feed binary + mlat-client + entrypoint.
