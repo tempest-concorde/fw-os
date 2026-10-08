@@ -47,14 +47,15 @@ jobs:
             zcat /tmp/Packages.gz > /tmp/Packages
           fi
 
+          pkgs="$(grep '^Package: ' /tmp/Packages | awk '{print $2}' | tr '\n' ' ')"
+          echo "::notice::packages in index: ${pkgs}"
           metadata="$(python3 - <<'PYEOF'
           import re, sys
           text = open('/tmp/Packages').read()
           stanzas = [st for st in text.split('\n\n') if st.startswith('Package: fr24feed')]
           if not stanzas:
-              names = re.findall(r'^Package: (\S+)', text, re.M)
-              print('ERROR_NO_FR24FEED pkg_count=%d first=%s' % (len(names), ' '.join(names[:15])))
-              sys.exit(1)
+              print('NOTFOUND')
+              sys.exit(0)
           fields = {}
           for line in stanzas[-1].splitlines():
               k, _, v = line.partition(': ')
@@ -62,14 +63,13 @@ jobs:
           print('OK\n%s\n%s\n%s' % (fields['Version'], fields['Filename'], fields['SHA256']))
           PYEOF
           )"
-          case "${metadata}" in OK*)
-            version="$(printf '%s' "${metadata}" | sed -n '2p')"
-            filename="$(printf '%s' "${metadata}" | sed -n '3p')"
-            sha256="$(printf '%s' "${metadata}" | sed -n '4p')"
-            ;;
-          *)
+          echo "::notice::metadata=$(printf '%s' "${metadata}" | head -c 400)"
+          case "${metadata}" in OK*) ;; *)
             echo "::error::fr24feed not in Packages index: ${metadata}"; exit 1;;
           esac
+          version="$(printf '%s' "${metadata}" | sed -n '2p')"
+          filename="$(printf '%s' "${metadata}" | sed -n '3p')"
+          sha256="$(printf '%s' "${metadata}" | sed -n '4p')"
           url="https://repo-feed.flightradar24.com/${filename}"
           printf '%s' "${sha256}" | grep -qE '^[0-9a-f]{64}$' \
             || { echo "::error::no usable upstream sha256 in Packages entry"; exit 1; }
