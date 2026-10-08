@@ -51,58 +51,70 @@ jobs:
               print(f"::error::{msg}")
               sys.exit(1)
 
-          resolved = {}
-          for img in ok_images:
-              pkg = f"tempest-concorde/{img}"
-              body, _ = gh_json(
-                  f"https://ghcr.io/token?scope=repository:{pkg}:pull",
-                  token=__import__("base64").b64encode(f"{user}:{token_in}".encode()).decode())
-              token = json.loads(body)["token"]
-              body, _ = gh_json(f"https://ghcr.io/v2/{pkg}/tags/list", token=token)
-              tags = json.loads(body)["tags"]
-              releases = sorted(t for t in tags
-                                if t != "latest" and not t.endswith(".sig") and len(t) < 45)
-              if not releases:
-                  failing(f"no release tags for {img}: {tags}")
-              tag = releases[-1]
-              accept = "application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json"
-              _, hdr = gh_json(f"https://ghcr.io/v2/{pkg}/manifests/{tag}", token=token, accept=accept)
-              digest = hdr.get("Docker-Content-Digest", "")
-              digest = digest[7:] if digest.startswith("sha256:") else digest
-              if not re.fullmatch(r"[0-9a-f]{64}", digest):
-                  failing(f"malformed digest for {img}@{tag}: {digest!r}")
-              resolved[img] = (tag, digest)
-              print(f"{img}@{tag} -> {digest}")
+          def __main():
+              resolved = {}
+              for img in ok_images:
+                  pkg = f"tempest-concorde/{img}"
+                  body, _ = gh_json(
+                      f"https://ghcr.io/token?scope=repository:{pkg}:pull",
+                      token=__import__("base64").b64encode(f"{user}:{token_in}".encode()).decode())
+                  token = json.loads(body)["token"]
+                  body, _ = gh_json(f"https://ghcr.io/v2/{pkg}/tags/list", token=token)
+                  tags = json.loads(body)["tags"]
+                  releases = sorted(t for t in tags
+                                    if t != "latest" and not t.endswith(".sig") and len(t) < 45)
+                  if not releases:
+                      failing(f"no release tags for {img}: {tags}")
+                  tag = releases[-1]
+                  accept = "application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json"
+                  _, hdr = gh_json(f"https://ghcr.io/v2/{pkg}/manifests/{tag}", token=token, accept=accept)
+                  digest = hdr.get("Docker-Content-Digest", "")
+                  digest = digest[7:] if digest.startswith("sha256:") else digest
+                  if not re.fullmatch(r"[0-9a-f]{64}", digest):
+                      failing(f"malformed digest for {img}@{tag}: {digest!r}")
+                  resolved[img] = (tag, digest)
+                  print(f"{img}@{tag} -> {digest}")
 
-          BRANCH = os.environ["BRANCH"]
-          subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True)
-          subprocess.run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
-          subprocess.run(["git", "checkout", "-B", BRANCH], check=True)
+              BRANCH = os.environ["BRANCH"]
+              subprocess.run(["git", "config", "user.name", "github-actions[bot]"], check=True)
+              subprocess.run(["git", "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"], check=True)
+              subprocess.run(["git", "checkout", "-B", BRANCH], check=True)
 
-          for img, (tag, digest) in resolved.items():
-              short = img.removeprefix("fw-adsb-")
-              ref = f"ghcr.io/tempest-concorde/{img}:{tag}@sha256:{digest}"
-              for path in (f"Containerfile.adsb-{short}", f"fw-adsb-{short}.container"):
-                  if not os.path.exists(path):
-                      continue
-                  text = open(path).read()
-                  new = re.sub(
-                      rf"(?m)^FROM ghcr\.io/tempest-concorde/{re.escape(img)}\S*\s*$",
-                      f"FROM {ref}", text)
-                  new = re.sub(
-                      rf"(?m)^Image=ghcr\.io/tempest-concorde/{re.escape(img)}\S*\s*$",
-                      f"Image={ref}", new)
-                  if new != text:
-                      open(path, "w").write(new)
-                      print(f"updated {path} -> {ref}")
+              for img, (tag, digest) in resolved.items():
+                  short = img.removeprefix("fw-adsb-")
+                  ref = f"ghcr.io/tempest-concorde/{img}:{tag}@sha256:{digest}"
+                  for path in (f"Containerfile.adsb-{short}", f"fw-adsb-{short}.container"):
+                      if not os.path.exists(path):
+                          continue
+                      text = open(path).read()
+                      new = re.sub(
+                          rf"(?m)^FROM ghcr\.io/tempest-concorde/{re.escape(img)}\S*\s*$",
+                          f"FROM {ref}", text)
+                      new = re.sub(
+                          rf"(?m)^Image=ghcr\.io/tempest-concorde/{re.escape(img)}\S*\s*$",
+                          f"Image={ref}", new)
+                      if new != text:
+                          open(path, "w").write(new)
+                          print(f"updated {path} -> {ref}")
 
-          if subprocess.run(["git", "diff", "--quiet"], check=False).returncode == 0:
-              print("::notice::digests already current, nothing to commit")
-              sys.exit(0)
-          subprocess.run(["git", "add"] + [p for p in subprocess.check_output(["git", "status", "--porcelain"], text=True).splitlines()], check=True)
-          subprocess.run(["git", "add", "-A"], check=True)
-          subprocess.run(["git", "commit", "-m", "chore(adsb): fill released digests into sentinels + quadlets (T049/W4b)"], check=True)
-          subprocess.run(["git", "push", "-u", "origin", BRANCH], check=True)
+              if subprocess.run(["git", "diff", "--quiet"], check=False).returncode == 0:
+                  print("::notice::digests already current, nothing to commit")
+                  sys.exit(0)
+              subprocess.run(["git", "add"] + [p for p in subprocess.check_output(["git", "status", "--porcelain"], text=True).splitlines()], check=True)
+              subprocess.run(["git", "add", "-A"], check=True)
+              subprocess.run(["git", "commit", "-m", "chore(adsb): fill released digests into sentinels + quadlets (T049/W4b)"], check=True)
+              subprocess.run(["git", "push", "-u", "origin", BRANCH], check=True)
+          if __name__ == '__main__':
+              try:
+                  __main()
+              except SystemExit:
+                  raise
+              except Exception:
+                  import traceback as __tb
+                  t = __tb.format_exc()[-1500:]
+                  t = t.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                  print('::error::resolve exception: ' + t)
+                  raise SystemExit(1)
           PYEOF
 
       - name: Report
