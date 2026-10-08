@@ -29,8 +29,12 @@ if [ "${READSB_IFILE:-}" != "" ]; then
     readsb --ifile "$READSB_IFILE" $READSB_ARGS &
     READSB_PID=$!
     trap 'kill "$READSB_PID" "$HTTP_PID" 2>/dev/null || true' EXIT TERM INT
-    wait "$READSB_PID"
-    exit "$?"
+    wait "$READSB_PID" || true
+    # The recorded fixture is short: when replay exhausts it, readsb exits —
+    # keep serving the last-written JSON until the container is stopped so
+    # the recorded-replay test tier can validate it.
+    wait "$HTTP_PID"
+    exit 0
 fi
 
 # No receiver attached: idle cleanly (exit 0 on stop) instead of crash-looping,
