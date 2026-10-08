@@ -24,7 +24,7 @@ FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac
 COPY containers/adsb/versions.env /tmp/versions.env
 
 RUN dnf install -q -y gcc make git zlib-devel zstd-devel rtl-sdr-devel ncurses-devel >/tmp/dnf.log 2>&1 \
- || { tail -60 /tmp/dnf.log; exit 1; }; dnf clean all
+ || { tail -60 /tmp/dnf.log >&2; exit 1; }; dnf clean all
 
 RUN set -a && . /tmp/versions.env && set +a \
  && git clone --quiet "${READSB_REPO}" /src/readsb \
@@ -42,7 +42,7 @@ FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac
 # rtl-sdr: live device access; python3: http.server for the /data JSON docroot
 # (no readsb built-in HTTP assumed); libusbx/ca-certificates kept explicit.
 RUN dnf install -q -y rtl-sdr python3 libusbx zlib zstd ca-certificates >/tmp/dnf.log 2>&1 \
- || { tail -60 /tmp/dnf.log; exit 1; }; dnf clean all
+ || { tail -60 /tmp/dnf.log >&2; exit 1; }; dnf clean all
 
 COPY --from=builder /usr/local/bin/readsb /usr/local/bin/readsb
 COPY containers/adsb/readsb/entrypoint.sh /usr/local/bin/fw-adsb-readsb-entrypoint.sh
