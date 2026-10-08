@@ -39,10 +39,14 @@ jobs:
           # Resolve the newest flightradar24_*_arm64.tgz from the repo
           # directory listing instead of trusting a fixed URL.
           BASE_URL="https://repo-feed.flightradar24.com/linux_fr24feed_packages"
-          CODE="$(curl -sSL -o /tmp/index.html -w '%{http_code}' "${BASE_URL}/" || true)"
+          # repo-feed is a public S3 bucket: no directory index exists (GET on
+          # the trailing-slash key returns NoSuchKey XML/404). Enumerate object
+          # keys with the S3 ListObjectsV2 API instead.
+          CODE="$(curl -sSL -o /tmp/index.xml -w '%{http_code}' \
+            'https://repo-feed.flightradar24.com/?list-type=2&prefix=linux_fr24feed_packages/flightradar24_' || true)"
           echo "::notice::listing http_code=${CODE}"
           [ "${CODE}" = "200" ] \
-            || { echo "::error::listing rc=${CODE}::payload=$(tail -c 1500 /tmp/types 2>/dev/null; tail -c 1500 /tmp/index.html 2>/dev/null | base64 -w0)"; exit 1; }
+            || { echo "::error::listing rc=${CODE}::payload=$(tail -c 1500 /tmp/index.xml 2>/dev/null | base64 -w0)"; exit 1; }
           fname="$(grep -oE 'flightradar24_[0-9.]+-[0-9]+_arm64\.tgz' /tmp/index.html             | sort -V | tail -n1)"
           [ -n "${fname}" ] \
             || { echo "::error::no flightradar24_*_arm64.tgz in repo listing"; exit 1; }
