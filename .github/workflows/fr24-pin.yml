@@ -36,9 +36,9 @@ jobs:
           SUITE=linux-stable
           ARCH=arm64
           PKG="Packages"
-          CODE="$(curl -sSL -o /tmp/Packages -w '%{http_code}' \
+          CODE="$(curl -sSL -o /tmp/Packages -w '%{http_code}' -D /tmp/pkghdr \
             "https://repo-feed.flightradar24.com/dists/flightradar24/${SUITE}/binary-${ARCH}/${PKG}" || true)"
-          echo "::notice::pkg_plain http_code=${CODE}"
+          echo "::notice::pkg_plain http_code=${CODE} body_head=$(head -c 400 /tmp/Packages | base64 -w0)"
           if [ "${CODE}" != "200" ]; then
             CODE="$(curl -sSL -o /tmp/Packages.gz -w '%{http_code}' \
               "https://repo-feed.flightradar24.com/dists/flightradar24/${SUITE}/binary-${ARCH}/${PKG}.gz" || true)"
