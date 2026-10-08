@@ -47,7 +47,7 @@ jobs:
           echo "::notice::listing http_code=${CODE}"
           [ "${CODE}" = "200" ] \
             || { echo "::error::listing rc=${CODE}::payload=$(tail -c 1500 /tmp/index.xml 2>/dev/null | base64 -w0)"; exit 1; }
-          fname="$(grep -oE 'flightradar24_[0-9.]+-[0-9]+_arm64\.tgz' /tmp/index.html             | sort -V | tail -n1)"
+          fname="$(grep -oE 'flightradar24_[0-9.]+-[0-9]+_arm64\.tgz' /tmp/index.xml             | sort -V | tail -n1)"
           [ -n "${fname}" ] \
             || { echo "::error::no flightradar24_*_arm64.tgz in repo listing"; exit 1; }
           version="${fname#flightradar24_}"
