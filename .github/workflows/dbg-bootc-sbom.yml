@@ -33,7 +33,9 @@ jobs:
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: |
           set +e
-          cosign attest --yes --key env://COSIGN_PRIVATE_KEY --tlog-upload=false \
+          curl -fsSL https://raw.githubusercontent.com/sigstore/root-signing/refs/heads/main/targets/signing_config.v0.2.json \
+            | jq 'del(.rekorTlogUrls)' > /tmp/sc.json
+          cosign attest --yes --key env://COSIGN_PRIVATE_KEY --signing-config /tmp/sc.json \
             --type spdxjson --predicate sbom.spdx.json \
             ghcr.io/tempest-concorde/fw-os@sha256:40e21ad1898c93a10fdc1eeecb36b8386de5d82f2ec23d3bb3418c0b405e5513 2>&1 | tee /tmp/attest.log
           rc=${PIPESTATUS[0]}
