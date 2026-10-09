@@ -22,9 +22,9 @@ jobs:
     uses: tempest-concorde/fw-cicd/.github/workflows/go-quality.yml@main
     with:
       working_directory: containers/adsb/status/src
-      # go.mod declares `go 1.25`; keep golangci-lint on a release built with
-      # Go 1.25 or newer (v2.2 predates Go 1.25 support).
-      golangci_lint_version: 'v2.5'
+      # go.mod declares `go 1.26`; keep golangci-lint on a release built with
+      # Go 1.26 or newer (v2.5 predates Go 1.26 module loading).
+      golangci_lint_version: 'v2.14.0'
 
   build-readsb:
     name: Build readsb image (no push)
