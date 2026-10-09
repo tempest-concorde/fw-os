@@ -12,4 +12,4 @@
 #
 # Keep this reference identical to the Image= lines in fw-app.container and
 # fw-app.image — the digest-sync check enforces this on every PR.
-FROM ghcr.io/tempest-concorde/fw-app:1.1.1@sha256:02c8cb9c98d319b2f46a7f87ab5da71be8bc8fe2c14c1284275c5443316444ff
+FROM ghcr.io/tempest-concorde/fw-app:1.2.2@sha256:85041f43a5140adaaa196ea7a99b4e44a0262f2b874ccdf2382f1cb1cf76c897
