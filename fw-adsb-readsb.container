@@ -7,9 +7,10 @@ After=network-online.target
 Wants=network-online.target
 
 [Container]
-# Pinned to SemVer tag + SHA256 digest (placeholder). The digest-sync workflow
-# fills the digest on first release, mirroring the Containerfile.fw-app
-# sentinel convention (see fw-app.container).
+# Pinned to SemVer tag + SHA256 digest. Dependabot tracks the
+# Containerfile.adsb-readsb sentinel and the digest-sync check keeps this
+# line identical to it, mirroring the Containerfile.fw-app sentinel
+# convention (see fw-app.container).
 Image=ghcr.io/tempest-concorde/fw-adsb-readsb:v2.2.16@sha256:e309858b7d00114f870cee8b74e80038f039e39cac28e6eebb8a5e6f746de939
 ContainerName=fw-adsb-readsb
 Pull=newer
