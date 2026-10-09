@@ -96,12 +96,23 @@ jobs:
           Updates the fw-os \`Containerfile\` base image. Human review and merge required.
           EOF
           )
-          if [ "$(gh pr list --head "${BRANCH}" --state open --json number --jq 'length')" = "0" ]; then
-            gh pr create \
+          if ! EXISTING=$(gh pr list --head "${BRANCH}" --state open --json number --jq 'length' 2>&1); then
+            EXISTING=0
+          fi
+          if [ "${EXISTING}" = "0" ]; then
+            if ! OUT=$(gh pr create \
               --title "chore(deps): update fedora-bootc-pi base to ${VERSION}" \
               --body "${BODY}" \
               --head "${BRANCH}" \
-              --base main
+              --base main 2>&1); then
+              # Org policy blocks GitHub App / Actions PR creation (documented
+              # fw-os T049/W4c precedent): degrade to warning — the pushed
+              # branch is complete and reviewable; a human opens the PR.
+              ERR1=$(echo "$OUT" | head -1)
+              echo "::warning::gh pr create denied by org policy (${ERR1}). Cascade branch ${BRANCH} pushed and ready; open the PR manually: gh pr create -R ${GITHUB_REPOSITORY} --head ${BRANCH} --base main"
+              exit 0
+            fi
+            echo "Created PR: ${OUT}"
           else
             echo "PR already open for ${BRANCH}; branch refreshed (no duplicate)"
           fi
