@@ -4,7 +4,7 @@
 [Image]
 # Pinned to SemVer tag + SHA256 digest. Kept in sync with fw-app.container
 # and the Containerfile.fw-app sentinel by the digest-sync workflow.
-Image=ghcr.io/tempest-concorde/fw-app:1.3.0@sha256:d5a57dca11ebbab2018b5626c1d058283660da720bf8ec4f1fe977e2c92c930b
+Image=ghcr.io/tempest-concorde/fw-app:1.3.3@sha256:588c9e21fb593051c508d2253be7c2c160fc891755e81ac0a4c8bff5ca30f117
 
 [Service]
 TimeoutStartSec=300
