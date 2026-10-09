@@ -4,7 +4,7 @@
 # Base pinned to SemVer tag + SHA256 digest, aligned with fw-gsd
 # FEDORA-BASELINE.md (Fedora 46). Dependabot opens a PR when a new
 # fedora-bootc-pi release appears; digest-sync keeps the tag's digest fresh.
-FROM ghcr.io/tempest-concorde/fedora-bootc-pi:4.1.1@sha256:1aa2b2c4d1766c2a48e5b5a4035602251a73163ff8d5d1badb0c216140dc3f52
+FROM ghcr.io/tempest-concorde/fedora-bootc-pi:4.2.0@sha256:b525bdf2429ed7b9abafe6a697c65665eb6e63f6987ab42aad405cf1ccf80d35
 
 # Metadata
 LABEL org.opencontainers.image.title="Flight Wall OS"
