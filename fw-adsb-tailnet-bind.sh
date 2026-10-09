@@ -46,9 +46,13 @@ PublishPort=
 PublishPort=${TS_IP}:8081:8081
 EOF
 
-# Reload both managers and restart the user quadlets (daemon-reload for the
-# user manager requires addressing core's manager; -M core@ needs systemd 257+,
-# present on Fedora 45).
+# Reload both managers and restart the user quadlets. -M core@ requires
+# polkit interactive auth that does not exist from a system unit (fw-os#86
+# follow-up); runuser+runtime-env reaches core's manager without polkit.
 systemctl daemon-reload
-systemctl -M core@ daemon-reload
-systemctl -M core@ restart fw-adsb-readsb.service fw-adsb-status.service || true
+runuser -u core -- env XDG_RUNTIME_DIR=/run/user/1000 \
+    DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+    systemctl --user daemon-reload
+runuser -u core -- env XDG_RUNTIME_DIR=/run/user/1000 \
+    DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+    systemctl --user restart fw-adsb-readsb.service fw-adsb-status.service || true

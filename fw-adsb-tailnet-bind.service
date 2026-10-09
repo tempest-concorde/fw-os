@@ -13,6 +13,10 @@ PartOf=tailscaled.service
 [Service]
 Type=oneshot
 RemainAfterExit=true
+# Writes quadlet drop-ins under /etc/containers as initrc_t is denied there
+# (no AVC logged — dontaudit; confirmed via semodule -DB on hardware) — run
+# unconfined instead (fw-os#86 follow-up).
+SELinuxContext=system_u:system_r:unconfined_service_t:s0
 ExecStart=/usr/libexec/fw-os/fw-adsb-tailnet-bind.sh
 
 [Install]
