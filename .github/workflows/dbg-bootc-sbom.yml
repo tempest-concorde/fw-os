@@ -1,0 +1,43 @@
+name: DBG bootc sbom+cosign (temporary)
+on: [pull_request]
+jobs:
+  dbg:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: versions + sizes
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/sigstore/cosign/main/install.sh -o /dev/null || true
+          echo "marker only"
+      - name: Login ghcr
+        run: |
+          echo ${GITHUB_TOKEN} | docker login ghcr.io -u ${GITHUB_ACTOR} --password-stdin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Syft version + generate bootc sbom (size probe)
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26
+        with:
+          image: ghcr.io/tempest-concorde/fw-os@sha256:40e21ad1898c93a10fdc1eeecb36b8386de5d82f2ec23d3bb3418c0b405e5513
+          format: spdx-json
+          output-file: sbom.spdx.json
+      - name: Size check
+        run: ls -lh sbom.spdx.json && wc -c sbom.spdx.json
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6
+      - name: Attest with self-reporting error
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: |
+          set +e
+          cosign attest --yes --key env://COSIGN_PRIVATE_KEY --tlog-upload=false \
+            --type spdxjson --predicate sbom.spdx.json \
+            ghcr.io/tempest-concorde/fw-os@sha256:40e21ad1898c93a10fdc1eeecb36b8386de5d82f2ec23d3bb3418c0b405e5513 2>&1 | tee /tmp/attest.log
+          rc=${PIPESTATUS[0]}
+          if [ $rc -ne 0 ]; then
+            sed 's/^/::error::/;s/[[:cntrl:]]//g' /tmp/attest.log | head -60
+            exit $rc
+          fi
