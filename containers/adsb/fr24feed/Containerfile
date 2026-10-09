@@ -13,6 +13,7 @@
 # build workflow has no build-args input.
 
 FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41 AS fr24
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 COPY containers/adsb/versions.env /tmp/versions.env
 
@@ -31,8 +32,9 @@ RUN dnf install -q -y curl ca-certificates tar gzip binutils xz zstd && dnf clea
 RUN set -a && . /tmp/versions.env && set +a \
  && mkdir -p /tmp/deb /out/usr/local/bin \
  && curl -fsSL "${FR24_FEED_URL}" -o /tmp/pkg.deb \
- && echo "${FR24_FEED_SHA256}  /tmp/pkg.deb" > /tmp/pkg.sha \
- && ( sha256sum -c /tmp/pkg.sha \
+ && echo "${FR24_FEED_SHA256}  /tmp/pkg.deb" > /tmp/pkg.sha
+RUN set -a && . /tmp/versions.env && set +a \
+ && if ! ( sha256sum -c /tmp/pkg.sha \
    && ar --output=/tmp/deb x /tmp/pkg.deb \
    && data="$(find /tmp/deb -maxdepth 1 -name 'data.tar.*' -print -quit)" \
    && case "$data" in \
@@ -44,8 +46,9 @@ RUN set -a && . /tmp/versions.env && set +a \
    && tar -xf /tmp/payload.tar -C /tmp/deb \
    && install -m 0755 /tmp/deb/usr/bin/fr24feed /out/usr/local/bin/fr24feed \
    && rm -rf /tmp/pkg.deb /tmp/pkg.sha /tmp/payload.tar /tmp/deb /tmp/versions.env \
-   ) > /tmp/fr24build.log 2>&1 \
- || { grep -iE "error|fail|exception|traceback|fatal" /tmp/fr24build.log | tail -30 >&2; exit 1; }
+   ) > /tmp/fr24build.log 2>&1; then \
+      grep -iE "error|fail|exception|traceback|fatal" /tmp/fr24build.log | tail -30 >&2; exit 1; \
+    fi
 
 # ---------------------------------------------------------------------------
 # mlat-client (T042): enables opt-in FR24 multilateration (spec FR-012 — only
@@ -55,18 +58,22 @@ RUN set -a && . /tmp/versions.env && set +a \
 # adjust install root or entry script name if upstream packaging changed.
 # ---------------------------------------------------------------------------
 FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41 AS mlat-builder
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 COPY containers/adsb/versions.env /tmp/versions.env
-RUN dnf install -q -y gcc git python3-devel python3-setuptools ca-certificates \
-  > /tmp/dnf-mlat.log 2>&1 \
- || { grep -iE "error|fail|conflict|cannot" /tmp/dnf-mlat.log | tail -30 >&2; exit 1; }; \
- dnf clean all
+RUN if ! dnf install -q -y gcc git python3-devel python3-setuptools ca-certificates \
+    > /tmp/dnf-mlat.log 2>&1; then \
+      grep -iE "error|fail|conflict|cannot" /tmp/dnf-mlat.log | tail -30 >&2; exit 1; \
+    fi \
+ && dnf clean all
 RUN set -a && . /tmp/versions.env && set +a \
- && git clone --depth 1 --branch "${MLAT_CLIENT_REF}" "${MLAT_CLIENT_REPO}" /src/mlat > /tmp/git-mlat.log 2>&1 \
- || { tail -15 /tmp/git-mlat.log >&2; exit 1; }
+ && if ! git clone --depth 1 --branch "${MLAT_CLIENT_REF}" "${MLAT_CLIENT_REPO}" /src/mlat > /tmp/git-mlat.log 2>&1; then \
+      tail -15 /tmp/git-mlat.log >&2; exit 1; \
+    fi
 WORKDIR /src/mlat
-RUN set -e && python3 setup.py install --prefix=/usr/local --root=/tmp/mlat-root > /tmp/setup-mlat.log 2>&1 \
- || { grep -iE "error|exception|traceback" /tmp/setup-mlat.log | tail -30 >&2; exit 1; }
+RUN if ! python3 setup.py install --prefix=/usr/local --root=/tmp/mlat-root > /tmp/setup-mlat.log 2>&1; then \
+      grep -iE "error|exception|traceback" /tmp/setup-mlat.log | tail -30 >&2; exit 1; \
+    fi
 
 # ---------------------------------------------------------------------------
 # Final runtime stage: fr24feed binary + mlat-client + entrypoint.

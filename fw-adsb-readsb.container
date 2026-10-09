@@ -19,7 +19,11 @@ RunInit=true
 # RTL-SDR receiver via the stable udev symlink (not /dev/bus/usb — that path
 # varies across hot-plug). Rootless AddDevice fails container start when the
 # node is absent; fw-adsb-readsb-restart.path re-fires on replug.
-AddDevice=/dev/radio-adsb/rtl-sdr0
+AddDevice=/dev/radio-adsb/rtl-sdr0:/dev/radio-adsb/rtl-sdr0
+# The container (USER 1001) opens the node via core's supplementary adsbrx
+# group; requires core:997:1 in subgid and container_use_devices=on
+# (both provisioned at image build; see fw-os#86).
+GroupAdd=keep-groups
 
 # JSON output dir (aircraft.json etc.); docroot + data symlink baked into image.
 Volume=fw-adsb-readsb-data:/readsb:z

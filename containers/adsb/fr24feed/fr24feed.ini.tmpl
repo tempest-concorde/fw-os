@@ -18,7 +18,9 @@ lon="${LON}"
 elev="${ELEV}"
 
 # Pull decoded frames from the fw-adsb-readsb container's BEAST output.
-receiver="beast"
+# "beast-tcp" verified against fr24feed 1.0.57-1 binary strings
+# (starlingx-style "beast" is ignored, falls back to ttyUSB0 — fw-os#86).
+receiver="beast-tcp"
 host="fw-adsb-readsb:30005"
 bs="yes"
 raw="yes"

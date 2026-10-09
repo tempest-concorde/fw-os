@@ -1,3 +1,3 @@
 module github.com/tempest-concorde/fw-os/containers/adsb/status
 
-go 1.25
+go 1.26.9
