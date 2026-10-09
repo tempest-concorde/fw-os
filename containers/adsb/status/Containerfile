@@ -4,9 +4,9 @@
 # Digest pins (T039, resolved 2026-09-26 via Docker Hub API; arm64 verified).
 
 # Go builder: Red Hat hardened Go 1.27 image, digest-pinned (T010, fw-gsd
-# specs/004-fedora-version-alignment). src/go.mod deliberately still declares
-# `go 1.25` — no directive change needed because a 1.27 toolchain correctly
-# builds a `go 1.25` module (builder is newer than the language directive).
+# specs/004-fedora-version-alignment). src/go.mod declares `go 1.26` — the
+# minimum is pinned at 1.26.9+ (GO-2026-6617 net/http HPACK encoder race;
+# govulncheck on the 1.25 line fails CI; builder 1.27 builds it either way).
 # Build context is the REPOSITORY ROOT (see readsb/Containerfile for the
 # rationale), so source paths below are repo-relative.
 FROM registry.access.redhat.com/hi/go:1.27@sha256:cf54e1f8345bd38401ca8b651b4b0db65c784c23d4ab2b03f97d08a1d8bbbde4 AS builder
