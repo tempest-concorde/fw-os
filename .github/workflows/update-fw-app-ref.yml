@@ -100,12 +100,20 @@ jobs:
           Updates \`Containerfile.fw-app\` and the quadlet \`Image=\` references. Human review and merge required.
           EOF
           )
-          if [ "$(gh pr list --head "${BRANCH}" --state open --json number --jq 'length')" = "0" ]; then
-            gh pr create \
+          if ! EXISTING=$(gh pr list --head "${BRANCH}" --state open --json number --jq 'length' 2>&1); then
+            echo "::error::gh pr list failed: ${EXISTING}" | sed 's/[[:cntrl:]]//g'
+            exit 1
+          fi
+          if [ "${EXISTING}" = "0" ]; then
+            if ! OUT=$(gh pr create \
               --title "chore(deps): update fw-app to ${VERSION}" \
               --body "${BODY}" \
               --head "${BRANCH}" \
-              --base main
+              --base main 2>&1); then
+              echo "::error::gh pr create failed: ${OUT}" | sed 's/[[:cntrl:]]//g'
+              exit 1
+            fi
+            echo "Created PR: ${OUT}"
           else
             echo "PR already open for ${BRANCH}; branch refreshed (no duplicate)"
           fi
