@@ -75,8 +75,10 @@ COPY fw-adsb-status.container /etc/containers/systemd/users/1000/
 # USB hot-plug auto-recovery (plain user units, not quadlets).
 COPY fw-adsb-readsb-restart.path /usr/lib/systemd/user/
 COPY fw-adsb-readsb-restart.service /usr/lib/systemd/user/
+COPY fw-adsb-selinux-devices.service /usr/lib/systemd/system/
 RUN chmod +x /usr/libexec/fw-os/fw-adsb-tailnet-bind.sh && \
     systemctl enable fw-adsb-tailnet-bind.service && \
+    systemctl enable fw-adsb-selinux-devices.service && \
     systemctl --global enable fw-adsb-readsb-restart.path
 
 # Start the core user's systemd instance at boot so the rootless quadlet

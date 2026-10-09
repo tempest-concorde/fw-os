@@ -1,0 +1,21 @@
+# fw-adsb-selinux-devices — allow rootless containers to use host USB devices.
+# Feature: fw-gsd specs/003-usb-adsb-feeder (T009)
+#
+# With SELinux enforcing, container_t cannot even getattr() an usb_device_t
+# node ('ls' yields "-??????????"). The container_use_devices boolean grants
+# containers access to host device nodes; fw-adsb-readsb's AddDevice needs it.
+# Persisted (-P) to the policy store; running oneshot each boot is idempotent
+# and self-heals after policy-store resets.
+
+[Unit]
+Description=Enable container_use_devices for ADS-B receiver containers
+# Apply before the user manager (and thus the user quadlets) starts.
+Before=user@1000.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/usr/sbin/setsebool -P container_use_devices 1
+
+[Install]
+WantedBy=multi-user.target
