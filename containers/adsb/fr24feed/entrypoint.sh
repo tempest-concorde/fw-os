@@ -90,7 +90,7 @@ sed \
     -e "s|\${LAT}|$(esc "$FW_FR24_LAT")|g" \
     -e "s|\${LON}|$(esc "$FW_FR24_LON")|g" \
     -e "s|\${ELEV}|$(esc "$FW_FR24_ELEV")|g" \
-    -e "s|\${MLAT_BLOCK}|$(esc "$MLAT_BLOCK")|g" \
+    -e "s|\${MLAT_BLOCK}|$(printf '%s' "$MLAT_BLOCK" | sed 's|[\&|]|\\&|g' | sed ':a;N;$!ba;s/\n/\\\n/g')|g" \
     "$TMPL" > "$CONF"
 
 write_state active

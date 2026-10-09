@@ -19,7 +19,8 @@ RunInit=true
 
 # FR24 sharing key — podman secret, mounted read-only at
 # /run/secrets/fr24-sharing-key; rendered into tmpfs config by the entrypoint.
-Secret=fr24-sharing-key,mode=0400
+# uid=1001 required: image USER 1001 (first-hardware UAT, fw-os#86).
+Secret=fr24-sharing-key,uid=1001,mode=0400
 
 # Non-secret operator config (copied from fw-adsb.env.example by the operator).
 EnvironmentFile=/etc/fw-os/fw-adsb.env
