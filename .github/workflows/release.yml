@@ -64,6 +64,8 @@ jobs:
       containerfile: containers/adsb/readsb/Containerfile
       push: true
       tags: ${{ needs.release.outputs.new_release_version }} latest
+      version: ${{ needs.release.outputs.new_release_version }}
+      is_release: true
     secrets: inherit
 
   build-adsb-fr24feed:
@@ -77,6 +79,8 @@ jobs:
       containerfile: containers/adsb/fr24feed/Containerfile
       push: true
       tags: ${{ needs.release.outputs.new_release_version }} latest
+      version: ${{ needs.release.outputs.new_release_version }}
+      is_release: true
     secrets: inherit
 
   build-adsb-status:
@@ -90,6 +94,8 @@ jobs:
       containerfile: containers/adsb/status/Containerfile
       push: true
       tags: ${{ needs.release.outputs.new_release_version }} latest
+      version: ${{ needs.release.outputs.new_release_version }}
+      is_release: true
     secrets: inherit
 
   sign-adsb-readsb:
