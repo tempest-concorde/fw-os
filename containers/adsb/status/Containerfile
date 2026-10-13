@@ -9,7 +9,7 @@
 # govulncheck on the 1.25 line fails CI; builder 1.27 builds it either way).
 # Build context is the REPOSITORY ROOT (see readsb/Containerfile for the
 # rationale), so source paths below are repo-relative.
-FROM registry.access.redhat.com/hi/go:1.27@sha256:7afecbc43402eca3b6c8684c66353e29f36889cab254675b5118bb2314212062 AS builder
+FROM registry.access.redhat.com/hi/go:1.27@sha256:6684a3926e9462f9e8a1622e89b9bb39371337d160b70bc74de2e4399e699c13 AS builder
 WORKDIR /src
 COPY containers/adsb/status/src/ ./
 RUN GOFLAGS=-trimpath CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/fw-adsb-status ./cmd/fw-adsb-status
