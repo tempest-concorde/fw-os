@@ -19,7 +19,7 @@
 # so a raw dnf/make transcript always hides the actual failing lines.
 
 # --- builder -----------------------------------------------------------------
-FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41 AS builder
+FROM docker.io/library/fedora:46@sha256:78bb31de333664aa76c4bf54306791cd294c0bd4fbcfc4346e2286261de544c4 AS builder
 
 COPY containers/adsb/versions.env /tmp/versions.env
 
@@ -38,7 +38,7 @@ RUN make -C /src/readsb -j"$(nproc)" RTLSDR=yes >/tmp/make.log 2>&1 \
  && install -m 0755 /src/readsb/readsb /usr/local/bin/readsb
 
 # --- runtime -----------------------------------------------------------------
-FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41
+FROM docker.io/library/fedora:46@sha256:78bb31de333664aa76c4bf54306791cd294c0bd4fbcfc4346e2286261de544c4
 
 # rtl-sdr: live device access; python3: http.server for the /data JSON docroot
 # (no readsb built-in HTTP assumed); libusbx/ca-certificates kept explicit.
