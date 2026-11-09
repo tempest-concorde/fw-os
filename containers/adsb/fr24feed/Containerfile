@@ -12,7 +12,7 @@
 # source of truth), COPYed in per stage and sourced — the fw-cicd reusable
 # build workflow has no build-args input.
 
-FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41 AS fr24
+FROM docker.io/library/fedora:46@sha256:78bb31de333664aa76c4bf54306791cd294c0bd4fbcfc4346e2286261de544c4 AS fr24
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 COPY containers/adsb/versions.env /tmp/versions.env
@@ -57,7 +57,7 @@ RUN set -a && . /tmp/versions.env && set +a \
 # VERIFY-on-first-build: mlat-client layout/install paths at MLAT_CLIENT_REF —
 # adjust install root or entry script name if upstream packaging changed.
 # ---------------------------------------------------------------------------
-FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41 AS mlat-builder
+FROM docker.io/library/fedora:46@sha256:78bb31de333664aa76c4bf54306791cd294c0bd4fbcfc4346e2286261de544c4 AS mlat-builder
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 COPY containers/adsb/versions.env /tmp/versions.env
@@ -78,7 +78,7 @@ RUN if ! python3 setup.py install --prefix=/usr/local --root=/tmp/mlat-root > /t
 # ---------------------------------------------------------------------------
 # Final runtime stage: fr24feed binary + mlat-client + entrypoint.
 # ---------------------------------------------------------------------------
-FROM docker.io/library/fedora:46@sha256:a9bab18d01cf2c2cf62f3e79c72623405bce14ac062995cc6651a3073c802e41
+FROM docker.io/library/fedora:46@sha256:78bb31de333664aa76c4bf54306791cd294c0bd4fbcfc4346e2286261de544c4
 
 # fr24feed spawns mlat-client from PATH (mounted /usr/local/bin) when MLAT is
 # enabled in the rendered config.
